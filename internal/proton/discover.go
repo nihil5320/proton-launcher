@@ -55,14 +55,8 @@ func Discover() []Version {
 			if !e.IsDir() {
 				continue
 			}
-			wineBin := filepath.Join(lutrisDir, e.Name(), "bin", "wine")
-			if info, err := os.Stat(wineBin); err == nil && !info.IsDir() {
-				versions = append(versions, Version{
-					Name:   e.Name(),
-					Path:   wineBin,
-					Source: "lutris",
-				})
-			}
+			// Only pick up Proton binaries from Lutris; plain Wine
+			// runners are incompatible with both execution paths.
 			protonBin := filepath.Join(lutrisDir, e.Name(), "proton")
 			if info, err := os.Stat(protonBin); err == nil && !info.IsDir() {
 				versions = append(versions, Version{

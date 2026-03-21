@@ -10,6 +10,42 @@ import (
 	"github.com/nihil5320/proton-launcher/internal/config"
 )
 
+// cleanEnv returns os.Environ() with all known Wine, Proton, Steam, and
+// umu-launcher environment variables stripped so that stale values inherited
+// from the parent process cannot interfere with prefix isolation or runner
+// behaviour.
+func cleanEnv() []string {
+	remove := map[string]bool{
+		"WINEPREFIX":                       true,
+		"WINEDLLOVERRIDES":                 true,
+		"WINESERVER":                       true,
+		"WINELOADER":                       true,
+		"WINEDEBUG":                        true,
+		"WINE_LARGE_ADDRESS_AWARE":         true,
+		"STEAM_COMPAT_DATA_PATH":           true,
+		"STEAM_COMPAT_CLIENT_INSTALL_PATH": true,
+		"STEAM_COMPAT_TOOL_PATHS":          true,
+		"STEAM_COMPAT_MOUNTS":              true,
+		"PROTONPATH":                       true,
+		"PROTON_LOG":                       true,
+		"PROTON_DUMP_DEBUG_COMMANDS":       true,
+		"GAMEID":                           true,
+		"UMU_ID":                           true,
+		"STORE":                            true,
+		"SteamAppId":                       true,
+		"SteamGameId":                      true,
+	}
+
+	var out []string
+	for _, entry := range os.Environ() {
+		key, _, _ := strings.Cut(entry, "=")
+		if !remove[key] {
+			out = append(out, entry)
+		}
+	}
+	return out
+}
+
 func Run(exePath string, cfg *config.Config) error {
 	absExe, err := filepath.Abs(exePath)
 	if err != nil {
@@ -70,8 +106,13 @@ func Run(exePath string, cfg *config.Config) error {
 	}
 
 	go func() {
-		cmd.Wait()
+		waitErr := cmd.Wait()
 		if logFile != nil {
+			if waitErr != nil {
+				fmt.Fprintf(logFile, "\n--- proton exited with error: %v\n", waitErr)
+			} else {
+				fmt.Fprintf(logFile, "\n--- proton exited successfully\n")
+			}
 			logFile.Close()
 		}
 	}()
@@ -132,7 +173,7 @@ func buildUmuCommand(umuPath, exePath string, cfg *config.Config) []string {
 }
 
 func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []string {
-	env := os.Environ()
+	env := cleanEnv()
 	set := func(key, val string) {
 		env = append(env, key+"="+val)
 	}
@@ -144,6 +185,7 @@ func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []strin
 	set("GAMEID", gameID)
 	set("PROTONPATH", filepath.Dir(version.Path))
 	set("STEAM_COMPAT_DATA_PATH", prefixPath)
+	set("WINEPREFIX", filepath.Join(prefixPath, "pfx"))
 
 	if cfg.Locale != nil && *cfg.Locale != "" {
 		set("LANG", *cfg.Locale)
@@ -157,7 +199,7 @@ func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []strin
 }
 
 func buildEnv(version Version, prefixPath string, cfg *config.Config) []string {
-	env := os.Environ()
+	env := cleanEnv()
 
 	protonDir := filepath.Dir(version.Path)
 	set := func(key, val string) {
@@ -165,7 +207,9 @@ func buildEnv(version Version, prefixPath string, cfg *config.Config) []string {
 	}
 
 	set("STEAM_COMPAT_DATA_PATH", prefixPath)
-	set("STEAM_COMPAT_CLIENT_INSTALL_PATH", findSteamRoot())
+	if root := findSteamRoot(); root != "" {
+		set("STEAM_COMPAT_CLIENT_INSTALL_PATH", root)
+	}
 	set("WINEPREFIX", filepath.Join(prefixPath, "pfx"))
 	set("STEAM_COMPAT_TOOL_PATHS", protonDir)
 
