@@ -32,6 +32,8 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 	currentVersion := ""
 	if cfg.ProtonVersion != nil {
 		currentVersion = *cfg.ProtonVersion
+	} else if len(versionNames) > 0 {
+		currentVersion = versionNames[0]
 	}
 	currentPrefix := ""
 	if cfg.PrefixPath != nil {
