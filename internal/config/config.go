@@ -48,8 +48,20 @@ func GlobalConfigPath() (string, error) {
 	return filepath.Join(dir, "config.toml"), nil
 }
 
-func GameConfigPath(exePath string) string {
-	return filepath.Join(filepath.Dir(exePath), ".proton-launcher.toml")
+func GameConfigDir() (string, error) {
+	dir, err := GlobalConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "games"), nil
+}
+
+func GameConfigPath(exePath string) (string, error) {
+	dir, err := GameConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, sanitizeGameName(exePath)+".toml"), nil
 }
 
 func Load(path string) (*Config, error) {
@@ -89,7 +101,11 @@ func Resolve(exePath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	game, err := Load(GameConfigPath(exePath))
+	gamePath, err := GameConfigPath(exePath)
+	if err != nil {
+		return nil, err
+	}
+	game, err := Load(gamePath)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +120,7 @@ func Resolve(exePath string) (*Config, error) {
 	// If the per-game config doesn't set its own prefix_path,
 	// derive a per-game prefix under the base directory.
 	if game.PrefixPath == nil {
-		base := defaultPrefixBase()
+		base := DefaultPrefixBase()
 		if prefixBase != nil {
 			base = ExpandPath(*prefixBase)
 		}
@@ -187,7 +203,7 @@ func ExpandPath(p string) string {
 	return p
 }
 
-func defaultPrefixBase() string {
+func DefaultPrefixBase() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
@@ -235,6 +251,86 @@ func sanitizeGameName(exePath string) string {
 		return shortHash
 	}
 	return name + "-" + shortHash
+}
+
+// DefaultGlobalConfig returns a Config with the standard global defaults.
+func DefaultGlobalConfig() *Config {
+	return &Config{
+		UseUmu:    BoolPtr(true),
+		MangoHud:  BoolPtr(false),
+		Gamescope: BoolPtr(false),
+		GameMode:  BoolPtr(false),
+	}
+}
+
+// ResetGlobalConfig overwrites the global config with defaults.
+func ResetGlobalConfig() error {
+	cfgPath, err := GlobalConfigPath()
+	if err != nil {
+		return err
+	}
+	return Save(cfgPath, DefaultGlobalConfig())
+}
+
+// DeleteGameConfig removes the per-game config file for the given executable.
+func DeleteGameConfig(exePath string) error {
+	p, err := GameConfigPath(exePath)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DeleteGamePrefix removes the Wine prefix directory for the given executable.
+func DeleteGamePrefix(exePath string) error {
+	cfg, err := Resolve(exePath)
+	if err != nil {
+		return err
+	}
+	if cfg.PrefixPath == nil {
+		return nil
+	}
+	p := ExpandPath(*cfg.PrefixPath)
+	if err := os.RemoveAll(p); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DeleteAllGameConfigs removes the entire per-game config directory.
+func DeleteAllGameConfigs() error {
+	dir, err := GameConfigDir()
+	if err != nil {
+		return err
+	}
+	if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DeleteAllPrefixes removes the default prefix base directory.
+// Custom per-game prefix paths that point elsewhere are not affected.
+func DeleteAllPrefixes() error {
+	globalPath, err := GlobalConfigPath()
+	if err != nil {
+		return err
+	}
+	global, err := Load(globalPath)
+	if err != nil {
+		return err
+	}
+	base := DefaultPrefixBase()
+	if global.PrefixPath != nil {
+		base = ExpandPath(*global.PrefixPath)
+	}
+	if err := os.RemoveAll(base); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func StringPtr(s string) *string { return &s }

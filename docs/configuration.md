@@ -3,7 +3,9 @@
 proton-launcher uses TOML configuration files with two tiers:
 
 - Global: `~/.config/proton-launcher/config.toml`
-- Per-game: `<game-dir>/.proton-launcher.toml` (same directory as the `.exe`)
+- Per-game: `~/.config/proton-launcher/games/<game-name>.toml`
+
+Per-game configs are stored centrally under the `games/` subdirectory, named using a slug derived from the executable (e.g., `myGame-a1b2c3d4.toml`). This makes all game configs easy to find, manage, and clean up.
 
 Per-game fields override global fields. Any field not present in the per-game file inherits from the global config. A default global config is created automatically on first launch.
 
@@ -15,7 +17,7 @@ Per-game fields override global fields. Any field not present in the per-game fi
 | `prefix_path` | string | `~/.local/share/proton-launcher/prefixes/<game-name>` | Path to the Wine/Proton prefix directory. Created automatically if it doesn't exist. Defaults to a per-game directory derived from the executable name. |
 | `use_umu` | bool | `true` | Launch via `umu-run` (recommended). Provides the Steam Linux Runtime container, ProtonFixes, and proper environment setup. Set to `false` for direct Proton invocation. |
 | `game_id` | string | `"umu-default"` | UMU game ID for ProtonFixes lookup. Only used when `use_umu = true`. Find game IDs at [umu-database](https://github.com/Open-Wine-Components/umu-database). |
-| `locale` | string | (system default) | Locale override for the game process (`LC_ALL`). Useful for games that need a specific locale for correct text rendering, e.g. `ja_JP.UTF-8` for Japanese. |
+| `locale` | string | (system default) | Locale override for the game process (`LANG`). Useful for games that need a specific locale for correct text rendering, e.g. `ja_JP.UTF-8` for Japanese. |
 | `launch_args` | string array | `[]` | Extra arguments passed to the executable. |
 | `mangohud` | bool | `false` | Wrap the launch command with `mangohud`. Requires MangoHud to be installed. |
 | `gamescope` | bool | `false` | Wrap the launch command with `gamescope`. Requires Gamescope to be installed. |
@@ -103,3 +105,22 @@ There are three ways to edit configuration:
 3. Edit the TOML files directly with a text editor
 
 Changes take effect on the next launch.
+
+## Clearing data
+
+The config GUI includes a **Danger Zone** section with actions that require confirmation:
+
+### Per-game config panel
+
+| Action | Effect |
+| ------ | ------ |
+| **Clear Prefix** | Deletes the Wine prefix directory for this game (saves, Wine settings, installed components). A fresh prefix is created on next launch. |
+| **Delete Config** | Removes the per-game config file. The game reverts to global defaults. |
+
+### Global config panel
+
+| Action | Effect |
+| ------ | ------ |
+| **Reset to Defaults** | Overwrites the global config with defaults. |
+| **Clear All Prefixes** | Deletes the entire default prefix directory (`~/.local/share/proton-launcher/prefixes/`). Games with a custom `prefix_path` are not affected. |
+| **Clear All Game Configs** | Deletes all per-game config files under `~/.config/proton-launcher/games/`. |

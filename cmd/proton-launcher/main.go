@@ -106,7 +106,11 @@ func cmdConfig(args []string) {
 			showError(fmt.Sprintf("Invalid path: %s", err))
 			os.Exit(1)
 		}
-		cfgPath := config.GameConfigPath(absExe)
+		cfgPath, err := config.GameConfigPath(absExe)
+		if err != nil {
+			showError(fmt.Sprintf("Config error: %s", err))
+			os.Exit(1)
+		}
 		cfg, err := config.Load(cfgPath)
 		if err != nil {
 			showError(fmt.Sprintf("Config error: %s", err))
@@ -174,12 +178,7 @@ func ensureGlobalConfig() {
 	}
 
 	versions := proton.Discover()
-	cfg := &config.Config{
-		UseUmu:    config.BoolPtr(true),
-		MangoHud:  config.BoolPtr(false),
-		Gamescope: config.BoolPtr(false),
-		GameMode:  config.BoolPtr(false),
-	}
+	cfg := config.DefaultGlobalConfig()
 	if len(versions) > 0 {
 		cfg.ProtonVersion = config.StringPtr(versions[0].Name)
 	}
