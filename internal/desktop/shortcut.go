@@ -26,8 +26,23 @@ func escapeExecPath(p string) string {
 		"\"", "\\\"",
 		"$", "\\$",
 		"`", "\\`",
+		"%", "%%",
 	)
 	return r.Replace(p)
+}
+
+// sanitizeName strips control characters from a display name to prevent
+// injection of arbitrary keys into .desktop files.
+func sanitizeName(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		if r == '\n' || r == '\r' || r == '\t' {
+			b.WriteRune(' ')
+		} else if r >= 0x20 {
+			b.WriteRune(r)
+		}
+	}
+	return strings.TrimSpace(b.String())
 }
 
 func CreateShortcut(exePath, name string) (string, error) {
@@ -38,6 +53,10 @@ func CreateShortcut(exePath, name string) (string, error) {
 
 	if name == "" {
 		name = strings.TrimSuffix(filepath.Base(absExe), filepath.Ext(absExe))
+	}
+	name = sanitizeName(name)
+	if name == "" {
+		return "", fmt.Errorf("shortcut name is empty after sanitization")
 	}
 
 	home, err := os.UserHomeDir()
@@ -51,6 +70,10 @@ func CreateShortcut(exePath, name string) (string, error) {
 
 	safeName := sanitizeFilename(name)
 	destPath := filepath.Join(appDir, "proton-launcher-"+safeName+".desktop")
+
+	if _, err := os.Stat(destPath); err == nil {
+		return destPath, fmt.Errorf("shortcut already exists: %s (delete it first to recreate)", destPath)
+	}
 
 	f, err := os.Create(destPath)
 	if err != nil {

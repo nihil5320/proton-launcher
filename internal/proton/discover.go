@@ -27,24 +27,28 @@ func Discover() []Version {
 		filepath.Join(home, ".steam", "root", "compatibilitytools.d"),
 		filepath.Join(home, ".local", "share", "Steam", "compatibilitytools.d"),
 		"/usr/share/steam/compatibilitytools.d",
+		filepath.Join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam", "compatibilitytools.d"),
 	}
 	for _, dir := range steamCompatDirs {
 		versions = append(versions, scanProtonDir(dir, "steam-compat")...)
 	}
 
 	steamApps := filepath.Join(home, ".local", "share", "Steam", "steamapps", "common")
-	if entries, err := os.ReadDir(steamApps); err == nil {
-		for _, e := range entries {
-			if !e.IsDir() || !strings.HasPrefix(e.Name(), "Proton") {
-				continue
-			}
-			protonBin := filepath.Join(steamApps, e.Name(), "proton")
-			if info, err := os.Stat(protonBin); err == nil && !info.IsDir() {
-				versions = append(versions, Version{
-					Name:   e.Name(),
-					Path:   protonBin,
-					Source: "steam-bundled",
-				})
+	flatpakSteamApps := filepath.Join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam", "steamapps", "common")
+	for _, dir := range []string{steamApps, flatpakSteamApps} {
+		if entries, err := os.ReadDir(dir); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() || !strings.HasPrefix(e.Name(), "Proton") {
+					continue
+				}
+				protonBin := filepath.Join(dir, e.Name(), "proton")
+				if info, err := os.Stat(protonBin); err == nil && !info.IsDir() {
+					versions = append(versions, Version{
+						Name:   e.Name(),
+						Path:   protonBin,
+						Source: "steam-bundled",
+					})
+				}
 			}
 		}
 	}
@@ -124,11 +128,28 @@ func readVDFDisplayName(path string) string {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "\"display_name\"") {
-			parts := strings.SplitN(line, "\"", 5)
-			if len(parts) >= 4 {
-				return parts[3]
+		if !strings.Contains(line, "\"display_name\"") {
+			continue
+		}
+		// Extract all quoted values from the line.
+		var values []string
+		rest := line
+		for {
+			idx := strings.IndexByte(rest, '"')
+			if idx < 0 {
+				break
 			}
+			rest = rest[idx+1:]
+			end := strings.IndexByte(rest, '"')
+			if end < 0 {
+				break
+			}
+			values = append(values, rest[:end])
+			rest = rest[end+1:]
+		}
+		// Expect ["display_name", <value>]
+		if len(values) >= 2 && strings.EqualFold(values[0], "display_name") {
+			return values[1]
 		}
 	}
 	return ""

@@ -43,6 +43,8 @@ PREFIX=/usr sudo make install
 
 ## Uninstallation
 
+This removes the binary and desktop files, all config and game data (prefixes, logs):
+
 ```sh
 make uninstall
 ```
@@ -53,11 +55,12 @@ All day-to-day interaction happens through KDE's shell integration -- there is n
 
 ### Dolphin context menu
 
-Right-click any `.exe` file in Dolphin to see three actions:
+Right-click any `.exe` file in Dolphin to see two actions in the service menu:
 
-- "Launch with Proton" -- runs the game
 - "Configure Proton Settings" -- opens per-game config GUI
 - "Create Desktop Shortcut" -- generates a `.desktop` file in `~/.local/share/applications/`
+
+If proton-launcher is set as the default handler for `.exe` files (see installation), "Launch with Proton" also appears in the "Open With" menu.
 
 ### Double-click
 
@@ -89,9 +92,9 @@ See [docs/configuration.md](docs/configuration.md) for the full config reference
 Configuration uses TOML with two tiers:
 
 - Global: `~/.config/proton-launcher/config.toml`
-- Per-game: `~/.config/proton-launcher/games/<game-name>.toml`
+- Per-game: `~/.config/proton-launcher/games/<game-name>-<hash>.toml`
 
-Per-game configs are stored centrally, named using a slug derived from the executable path. Per-game fields override global fields; anything not set inherits from global. A default global config is created on first launch.
+Per-game configs are stored centrally, named using a slug derived from the executable name plus a short hash of the parent directory (e.g., `mygame-a1b2c3d4.toml`). Per-game fields override global fields; anything not set inherits from global. A default global config is created on first launch.
 
 ## Proton discovery
 
@@ -102,15 +105,19 @@ proton-launcher scans these locations for Proton and Wine installations:
 - `~/.local/share/Steam/steamapps/common/Proton*/`
 - `~/.local/share/lutris/runners/wine/`
 - `/usr/share/steam/compatibilitytools.d/`
+- `~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/` (Flatpak)
+- `~/.var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Proton*/` (Flatpak)
 
 Run `proton-launcher list` to see what was discovered.
+
+Discovered versions are sorted by preference: CachyOS Proton > Valve Proton (stable) > GE-Proton > Experimental/Hotfix > Lutris > other. Within each tier, newer versions sort first. The first discovered version is used as the default if no global config exists.
 
 ## Logs
 
 Launch output (stdout/stderr from Proton) is written to:
 
 ```text
-~/.local/share/proton-launcher/logs/<game-name>.log
+~/.local/share/proton-launcher/logs/<game-name>-<hash>.log
 ```
 
 ## License

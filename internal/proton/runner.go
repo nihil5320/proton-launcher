@@ -46,6 +46,17 @@ func cleanEnv() []string {
 	return out
 }
 
+// reservedEnvKeys are environment variables that must not be overridden
+// by user [env] config, as they control prefix isolation and runner behaviour.
+var reservedEnvKeys = map[string]bool{
+	"WINEPREFIX":                       true,
+	"STEAM_COMPAT_DATA_PATH":           true,
+	"PROTONPATH":                       true,
+	"GAMEID":                           true,
+	"STEAM_COMPAT_TOOL_PATHS":          true,
+	"STEAM_COMPAT_CLIENT_INSTALL_PATH": true,
+}
+
 func Run(exePath string, cfg *config.Config) error {
 	absExe, err := filepath.Abs(exePath)
 	if err != nil {
@@ -203,7 +214,9 @@ func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []strin
 	}
 
 	for k, v := range cfg.Env {
-		set(k, v)
+		if !reservedEnvKeys[k] {
+			set(k, v)
+		}
 	}
 
 	return env
@@ -229,7 +242,9 @@ func buildEnv(version Version, prefixPath string, cfg *config.Config) []string {
 	}
 
 	for k, v := range cfg.Env {
-		set(k, v)
+		if !reservedEnvKeys[k] {
+			set(k, v)
+		}
 	}
 
 	return env
@@ -265,7 +280,7 @@ func openLogFile(exePath string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	name := strings.TrimSuffix(filepath.Base(exePath), filepath.Ext(exePath))
+	name := config.SanitizeGameName(exePath)
 	logPath := filepath.Join(logDir, name+".log")
 	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 }

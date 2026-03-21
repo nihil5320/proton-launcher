@@ -1,7 +1,9 @@
 package gui
 
 import (
+	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -58,9 +60,12 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 		envLines = append(envLines, k+"="+v)
 	}
 	currentEnv := strings.Join(envLines, "\n")
-	currentArgs := strings.Join(cfg.LaunchArgs, " ")
+	currentArgs := strings.Join(cfg.LaunchArgs, "\n")
 
 	versionSelect := widget.NewSelect(versionNames, nil)
+	if len(versionNames) == 0 {
+		versionSelect.PlaceHolder = "No Proton versions found — install Proton and reopen"
+	}
 	versionSelect.SetSelected(currentVersion)
 
 	prefixEntry := widget.NewEntry()
@@ -72,9 +77,10 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 	envEntry.SetPlaceHolder("KEY=VALUE (one per line)")
 	envEntry.SetMinRowsVisible(4)
 
-	argsEntry := widget.NewEntry()
+	argsEntry := widget.NewMultiLineEntry()
 	argsEntry.SetText(currentArgs)
-	argsEntry.SetPlaceHolder("-fullscreen -skipintro")
+	argsEntry.SetPlaceHolder("One argument per line")
+	argsEntry.SetMinRowsVisible(3)
 
 	useUmuCheck := widget.NewCheck("Use umu-run", nil)
 	useUmuCheck.SetChecked(currentUseUmu)
@@ -85,12 +91,19 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 
 	localeOptions := []string{
 		"System Default",
+		"English (en_US.UTF-8)",
+		"French (fr_FR.UTF-8)",
+		"German (de_DE.UTF-8)",
+		"Spanish (es_ES.UTF-8)",
+		"Italian (it_IT.UTF-8)",
+		"Portuguese - Brazil (pt_BR.UTF-8)",
 		"Japanese (ja_JP.UTF-8)",
 		"Chinese - Simplified (zh_CN.UTF-8)",
 		"Chinese - Traditional (zh_TW.UTF-8)",
 		"Korean (ko_KR.UTF-8)",
 		"Thai (th_TH.UTF-8)",
 		"Russian (ru_RU.UTF-8)",
+		"Polish (pl_PL.UTF-8)",
 	}
 	localeSelect := widget.NewSelect(localeOptions, nil)
 	if currentLocale != "" {
@@ -104,6 +117,41 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 
 	gamescopeCheck := widget.NewCheck("Gamescope", nil)
 	gamescopeCheck.SetChecked(currentGamescope)
+
+	gsWidthEntry := widget.NewEntry()
+	gsWidthEntry.SetPlaceHolder("e.g. 1920")
+	gsHeightEntry := widget.NewEntry()
+	gsHeightEntry.SetPlaceHolder("e.g. 1080")
+	gsFullscreenCheck := widget.NewCheck("Fullscreen", nil)
+
+	updateGamescopeFields := func(enabled bool) {
+		if enabled {
+			gsWidthEntry.Enable()
+			gsHeightEntry.Enable()
+			gsFullscreenCheck.Enable()
+		} else {
+			gsWidthEntry.Disable()
+			gsHeightEntry.Disable()
+			gsFullscreenCheck.Disable()
+		}
+	}
+
+	if cfg.GamescopeOpts != nil {
+		if cfg.GamescopeOpts.Width != nil {
+			gsWidthEntry.SetText(fmt.Sprintf("%d", *cfg.GamescopeOpts.Width))
+		}
+		if cfg.GamescopeOpts.Height != nil {
+			gsHeightEntry.SetText(fmt.Sprintf("%d", *cfg.GamescopeOpts.Height))
+		}
+		if cfg.GamescopeOpts.Fullscreen != nil {
+			gsFullscreenCheck.SetChecked(*cfg.GamescopeOpts.Fullscreen)
+		}
+	}
+	updateGamescopeFields(currentGamescope)
+
+	gamescopeCheck.OnChanged = func(checked bool) {
+		updateGamescopeFields(checked)
+	}
 
 	gameModeCheck := widget.NewCheck("GameMode", nil)
 	gameModeCheck.SetChecked(currentGameMode)
@@ -120,6 +168,9 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 			{Text: "Environment", Widget: envEntry},
 			{Text: "Launch Args", Widget: argsEntry},
 			{Text: "Options", Widget: checks},
+			{Text: "Gamescope Width", Widget: gsWidthEntry},
+			{Text: "Gamescope Height", Widget: gsHeightEntry},
+			{Text: "Gamescope Fullscreen", Widget: gsFullscreenCheck},
 		},
 		OnSubmit: func() {
 			newCfg := &config.Config{}
@@ -136,6 +187,20 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 			newCfg.GameMode = config.BoolPtr(gameModeCheck.Checked)
 			newCfg.UseUmu = config.BoolPtr(useUmuCheck.Checked)
 
+			if gsWidthEntry.Text != "" || gsHeightEntry.Text != "" || gsFullscreenCheck.Checked {
+				opts := &config.GamescopeOpts{}
+				if w, err := strconv.Atoi(gsWidthEntry.Text); err == nil && w > 0 {
+					opts.Width = config.IntPtr(w)
+				}
+				if h, err := strconv.Atoi(gsHeightEntry.Text); err == nil && h > 0 {
+					opts.Height = config.IntPtr(h)
+				}
+				if gsFullscreenCheck.Checked {
+					opts.Fullscreen = config.BoolPtr(true)
+				}
+				newCfg.GamescopeOpts = opts
+			}
+
 			if gameIDEntry.Text != "" {
 				newCfg.GameID = config.StringPtr(gameIDEntry.Text)
 			}
@@ -145,14 +210,17 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 			}
 
 			if argsEntry.Text != "" {
-				newCfg.LaunchArgs = strings.Fields(argsEntry.Text)
+				newCfg.LaunchArgs = parseLines(argsEntry.Text)
 			}
 
 			if envEntry.Text != "" {
 				newCfg.Env = parseEnvLines(envEntry.Text)
 			}
 
-			config.Save(cfgPath, newCfg)
+			if err := config.Save(cfgPath, newCfg); err != nil {
+				dialog.ShowError(err, w)
+				return
+			}
 			a.Quit()
 		},
 		OnCancel: func() {
@@ -168,6 +236,14 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 }
 
 func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
+	// showDoneAndClose shows an informational dialog that closes the window
+	// when dismissed, since the underlying data has changed.
+	showDoneAndClose := func(title, msg string) {
+		d := dialog.NewInformation(title, msg, w)
+		d.SetOnClosed(func() { w.Close() })
+		d.Show()
+	}
+
 	var buttons []fyne.CanvasObject
 
 	if exePath != "" {
@@ -184,7 +260,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 						if err := config.DeleteGamePrefix(exePath); err != nil {
 							dialog.ShowError(err, w)
 						} else {
-							dialog.ShowInformation("Done", "Prefix cleared. A fresh prefix will be created on next launch.", w)
+							showDoneAndClose("Done", "Prefix cleared. A fresh prefix will be created on next launch.")
 						}
 					}, w)
 			}),
@@ -199,7 +275,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 						if err := config.DeleteGameConfig(exePath); err != nil {
 							dialog.ShowError(err, w)
 						} else {
-							dialog.ShowInformation("Done", "Game config deleted.", w)
+							showDoneAndClose("Done", "Game config deleted.")
 						}
 					}, w)
 			}),
@@ -218,7 +294,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 						if err := config.ResetGlobalConfig(); err != nil {
 							dialog.ShowError(err, w)
 						} else {
-							dialog.ShowInformation("Done", "Global config reset to defaults.", w)
+							showDoneAndClose("Done", "Global config reset to defaults.")
 						}
 					}, w)
 			}),
@@ -233,7 +309,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 						if err := config.DeleteAllPrefixes(); err != nil {
 							dialog.ShowError(err, w)
 						} else {
-							dialog.ShowInformation("Done", "All prefixes cleared.", w)
+							showDoneAndClose("Done", "All prefixes cleared.")
 						}
 					}, w)
 			}),
@@ -248,7 +324,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 						if err := config.DeleteAllGameConfigs(); err != nil {
 							dialog.ShowError(err, w)
 						} else {
-							dialog.ShowInformation("Done", "All game configs deleted.", w)
+							showDoneAndClose("Done", "All game configs deleted.")
 						}
 					}, w)
 			}),
@@ -276,6 +352,17 @@ func parseEnvLines(text string) map[string]string {
 	return env
 }
 
+func parseLines(text string) []string {
+	var out []string
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			out = append(out, line)
+		}
+	}
+	return out
+}
+
 func stripQuotes(s string) string {
 	if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')) {
 		return s[1 : len(s)-1]
@@ -287,12 +374,19 @@ var localeLabels = []struct {
 	code  string
 	label string
 }{
+	{"en_US.UTF-8", "English (en_US.UTF-8)"},
+	{"fr_FR.UTF-8", "French (fr_FR.UTF-8)"},
+	{"de_DE.UTF-8", "German (de_DE.UTF-8)"},
+	{"es_ES.UTF-8", "Spanish (es_ES.UTF-8)"},
+	{"it_IT.UTF-8", "Italian (it_IT.UTF-8)"},
+	{"pt_BR.UTF-8", "Portuguese - Brazil (pt_BR.UTF-8)"},
 	{"ja_JP.UTF-8", "Japanese (ja_JP.UTF-8)"},
 	{"zh_CN.UTF-8", "Chinese - Simplified (zh_CN.UTF-8)"},
 	{"zh_TW.UTF-8", "Chinese - Traditional (zh_TW.UTF-8)"},
 	{"ko_KR.UTF-8", "Korean (ko_KR.UTF-8)"},
 	{"th_TH.UTF-8", "Thai (th_TH.UTF-8)"},
 	{"ru_RU.UTF-8", "Russian (ru_RU.UTF-8)"},
+	{"pl_PL.UTF-8", "Polish (pl_PL.UTF-8)"},
 }
 
 func localeLabelFromCode(code string) string {

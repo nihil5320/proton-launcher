@@ -61,7 +61,7 @@ func GameConfigPath(exePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, sanitizeGameName(exePath)+".toml"), nil
+	return filepath.Join(dir, SanitizeGameName(exePath)+".toml"), nil
 }
 
 func Load(path string) (*Config, error) {
@@ -80,16 +80,31 @@ func Load(path string) (*Config, error) {
 }
 
 func Save(path string, cfg *Config) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating config dir: %w", err)
 	}
-	f, err := os.Create(path)
+	f, err := os.CreateTemp(dir, ".proton-launcher-*.tmp")
 	if err != nil {
-		return fmt.Errorf("creating config file: %w", err)
+		return fmt.Errorf("creating temp config file: %w", err)
 	}
-	defer f.Close()
+	tmpPath := f.Name()
+
 	enc := toml.NewEncoder(f)
-	return enc.Encode(cfg)
+	if err := enc.Encode(cfg); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("encoding config: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("closing config file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("saving config file: %w", err)
+	}
+	return nil
 }
 
 func Resolve(exePath string) (*Config, error) {
@@ -120,11 +135,14 @@ func Resolve(exePath string) (*Config, error) {
 	// If the per-game config doesn't set its own prefix_path,
 	// derive a per-game prefix under the base directory.
 	if game.PrefixPath == nil || *game.PrefixPath == "" {
-		base := DefaultPrefixBase()
+		base, err := DefaultPrefixBase()
+		if err != nil {
+			return nil, err
+		}
 		if prefixBase != nil {
 			base = ExpandPath(*prefixBase)
 		}
-		name := sanitizeGameName(exePath)
+		name := SanitizeGameName(exePath)
 		merged.PrefixPath = StringPtr(filepath.Join(base, name))
 	}
 
@@ -150,7 +168,8 @@ func Merge(base, override *Config) *Config {
 		out.Locale = override.Locale
 	}
 	if override.LaunchArgs != nil {
-		out.LaunchArgs = override.LaunchArgs
+		out.LaunchArgs = make([]string, len(override.LaunchArgs))
+		copy(out.LaunchArgs, override.LaunchArgs)
 	}
 	if override.MangoHud != nil {
 		out.MangoHud = override.MangoHud
@@ -203,12 +222,12 @@ func ExpandPath(p string) string {
 	return p
 }
 
-func DefaultPrefixBase() string {
+func DefaultPrefixBase() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
 	}
-	return filepath.Join(home, ".local", "share", "proton-launcher", "prefixes")
+	return filepath.Join(home, ".local", "share", "proton-launcher", "prefixes"), nil
 }
 
 func applyDefaults(cfg *Config) {
@@ -234,7 +253,7 @@ func applyDefaults(cfg *Config) {
 
 var nonWordChar = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 
-func sanitizeGameName(exePath string) string {
+func SanitizeGameName(exePath string) string {
 	abs, err := filepath.Abs(exePath)
 	if err != nil {
 		abs = exePath
@@ -323,7 +342,10 @@ func DeleteAllPrefixes() error {
 	if err != nil {
 		return err
 	}
-	base := DefaultPrefixBase()
+	base, err := DefaultPrefixBase()
+	if err != nil {
+		return err
+	}
 	if global.PrefixPath != nil {
 		base = ExpandPath(*global.PrefixPath)
 	}
