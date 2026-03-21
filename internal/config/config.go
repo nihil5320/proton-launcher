@@ -17,6 +17,7 @@ type Config struct {
 	PrefixPath    *string           `toml:"prefix_path,omitempty"`
 	UseUmu        *bool             `toml:"use_umu,omitempty"`
 	GameID        *string           `toml:"game_id,omitempty"`
+	Locale        *string           `toml:"locale,omitempty"`
 	LaunchArgs    []string          `toml:"launch_args,omitempty"`
 	MangoHud      *bool             `toml:"mangohud,omitempty"`
 	Gamescope     *bool             `toml:"gamescope,omitempty"`
@@ -98,7 +99,7 @@ func Resolve(exePath string) (*Config, error) {
 	prefixBase := global.PrefixPath
 
 	merged := Merge(global, game)
-	applyDefaults(merged, exePath)
+	applyDefaults(merged)
 
 	// If the per-game config doesn't set its own prefix_path,
 	// derive a per-game prefix under the base directory.
@@ -128,6 +129,9 @@ func Merge(base, override *Config) *Config {
 	}
 	if override.GameID != nil {
 		out.GameID = override.GameID
+	}
+	if override.Locale != nil {
+		out.Locale = override.Locale
 	}
 	if override.LaunchArgs != nil {
 		out.LaunchArgs = override.LaunchArgs
@@ -191,7 +195,7 @@ func defaultPrefixBase() string {
 	return filepath.Join(home, ".local", "share", "proton-launcher", "prefixes")
 }
 
-func applyDefaults(cfg *Config, exePath string) {
+func applyDefaults(cfg *Config) {
 	if cfg.UseUmu == nil {
 		cfg.UseUmu = BoolPtr(true)
 	}
@@ -212,7 +216,7 @@ func applyDefaults(cfg *Config, exePath string) {
 	}
 }
 
-var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
+var nonWordChar = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 
 func sanitizeGameName(exePath string) string {
 	abs, err := filepath.Abs(exePath)
@@ -225,7 +229,7 @@ func sanitizeGameName(exePath string) string {
 
 	name := strings.TrimSuffix(filepath.Base(abs), filepath.Ext(abs))
 	name = strings.ToLower(name)
-	name = nonAlphanumeric.ReplaceAllString(name, "-")
+	name = nonWordChar.ReplaceAllString(name, "-")
 	name = strings.Trim(name, "-")
 	if name == "" {
 		return shortHash

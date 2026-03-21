@@ -22,7 +22,6 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 		title = "Proton Launcher — " + name
 	}
 	w := a.NewWindow(title)
-	w.Resize(fyne.NewSize(500, 450))
 
 	versions := proton.Discover()
 	versionNames := make([]string, len(versions))
@@ -45,6 +44,10 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 	currentGameID := ""
 	if cfg.GameID != nil {
 		currentGameID = *cfg.GameID
+	}
+	currentLocale := ""
+	if cfg.Locale != nil {
+		currentLocale = *cfg.Locale
 	}
 
 	var envLines []string
@@ -77,6 +80,22 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 	gameIDEntry.SetText(currentGameID)
 	gameIDEntry.SetPlaceHolder("umu-default")
 
+	localeOptions := []string{
+		"System Default",
+		"ja_JP.UTF-8",
+		"zh_CN.UTF-8",
+		"zh_TW.UTF-8",
+		"ko_KR.UTF-8",
+		"th_TH.UTF-8",
+		"ru_RU.UTF-8",
+	}
+	localeSelect := widget.NewSelect(localeOptions, nil)
+	if currentLocale != "" {
+		localeSelect.SetSelected(currentLocale)
+	} else {
+		localeSelect.SetSelected("System Default")
+	}
+
 	mangoHudCheck := widget.NewCheck("MangoHud", nil)
 	mangoHudCheck.SetChecked(currentMangoHud)
 
@@ -94,6 +113,7 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 			{Text: "Prefix Path", Widget: prefixEntry},
 			{Text: "Use umu-run", Widget: useUmuCheck},
 			{Text: "Game ID", Widget: gameIDEntry},
+			{Text: "Locale", Widget: localeSelect},
 			{Text: "Environment", Widget: envEntry},
 			{Text: "Launch Args", Widget: argsEntry},
 			{Text: "Options", Widget: checks},
@@ -117,6 +137,10 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 				newCfg.GameID = config.StringPtr(gameIDEntry.Text)
 			}
 
+			if localeSelect.Selected != "" && localeSelect.Selected != "System Default" {
+				newCfg.Locale = config.StringPtr(localeSelect.Selected)
+			}
+
 			if argsEntry.Text != "" {
 				newCfg.LaunchArgs = strings.Fields(argsEntry.Text)
 			}
@@ -135,7 +159,8 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 		CancelText: "Cancel",
 	}
 
-	w.SetContent(form)
+	w.SetContent(container.NewVBox(form))
+	w.Resize(fyne.NewSize(500, w.Content().MinSize().Height))
 	w.ShowAndRun()
 }
 

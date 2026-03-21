@@ -145,6 +145,10 @@ func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []strin
 	set("PROTONPATH", filepath.Dir(version.Path))
 	set("STEAM_COMPAT_DATA_PATH", prefixPath)
 
+	if cfg.Locale != nil && *cfg.Locale != "" {
+		set("LC_ALL", *cfg.Locale)
+	}
+
 	for k, v := range cfg.Env {
 		set(k, v)
 	}
@@ -164,6 +168,10 @@ func buildEnv(version Version, prefixPath string, cfg *config.Config) []string {
 	set("STEAM_COMPAT_CLIENT_INSTALL_PATH", findSteamRoot())
 	set("WINEPREFIX", filepath.Join(prefixPath, "pfx"))
 	set("STEAM_COMPAT_TOOL_PATHS", protonDir)
+
+	if cfg.Locale != nil && *cfg.Locale != "" {
+		set("LC_ALL", *cfg.Locale)
+	}
 
 	for k, v := range cfg.Env {
 		set(k, v)

@@ -15,6 +15,7 @@ Per-game fields override global fields. Any field not present in the per-game fi
 | `prefix_path` | string | `~/.local/share/proton-launcher/prefixes/<game-name>` | Path to the Wine/Proton prefix directory. Created automatically if it doesn't exist. Defaults to a per-game directory derived from the executable name. |
 | `use_umu` | bool | `true` | Launch via `umu-run` (recommended). Provides the Steam Linux Runtime container, ProtonFixes, and proper environment setup. Set to `false` for direct Proton invocation. |
 | `game_id` | string | `"umu-default"` | UMU game ID for ProtonFixes lookup. Only used when `use_umu = true`. Find game IDs at [umu-database](https://github.com/Open-Wine-Components/umu-database). |
+| `locale` | string | (system default) | Locale override for the game process (`LC_ALL`). Useful for games that need a specific locale for correct text rendering, e.g. `ja_JP.UTF-8` for Japanese. |
 | `launch_args` | string array | `[]` | Extra arguments passed to the executable. |
 | `mangohud` | bool | `false` | Wrap the launch command with `mangohud`. Requires MangoHud to be installed. |
 | `gamescope` | bool | `false` | Wrap the launch command with `gamescope`. Requires Gamescope to be installed. |
