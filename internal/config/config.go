@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -12,6 +13,8 @@ import (
 type Config struct {
 	ProtonVersion *string           `toml:"proton_version,omitempty"`
 	PrefixPath    *string           `toml:"prefix_path,omitempty"`
+	UseUmu        *bool             `toml:"use_umu,omitempty"`
+	GameID        *string           `toml:"game_id,omitempty"`
 	LaunchArgs    []string          `toml:"launch_args,omitempty"`
 	MangoHud      *bool             `toml:"mangohud,omitempty"`
 	Gamescope     *bool             `toml:"gamescope,omitempty"`
@@ -101,6 +104,12 @@ func Merge(base, override *Config) *Config {
 	if override.PrefixPath != nil {
 		out.PrefixPath = override.PrefixPath
 	}
+	if override.UseUmu != nil {
+		out.UseUmu = override.UseUmu
+	}
+	if override.GameID != nil {
+		out.GameID = override.GameID
+	}
 	if override.LaunchArgs != nil {
 		out.LaunchArgs = override.LaunchArgs
 	}
@@ -156,6 +165,12 @@ func ExpandPath(p string) string {
 }
 
 func applyDefaults(cfg *Config, exePath string) {
+	if cfg.UseUmu == nil {
+		cfg.UseUmu = BoolPtr(true)
+	}
+	if cfg.GameID == nil {
+		cfg.GameID = StringPtr("umu-default")
+	}
 	if cfg.MangoHud == nil {
 		cfg.MangoHud = BoolPtr(false)
 	}
@@ -168,13 +183,27 @@ func applyDefaults(cfg *Config, exePath string) {
 	if cfg.PrefixPath == nil {
 		dataDir, err := os.UserHomeDir()
 		if err == nil {
-			def := filepath.Join(dataDir, ".local", "share", "proton-launcher", "prefixes", "default")
+			name := sanitizeGameName(exePath)
+			def := filepath.Join(dataDir, ".local", "share", "proton-launcher", "prefixes", name)
 			cfg.PrefixPath = &def
 		}
 	}
 	if cfg.Env == nil {
 		cfg.Env = make(map[string]string)
 	}
+}
+
+var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
+
+func sanitizeGameName(exePath string) string {
+	name := strings.TrimSuffix(filepath.Base(exePath), filepath.Ext(exePath))
+	name = strings.ToLower(name)
+	name = nonAlphanumeric.ReplaceAllString(name, "-")
+	name = strings.Trim(name, "-")
+	if name == "" {
+		return "default"
+	}
+	return name
 }
 
 func StringPtr(s string) *string { return &s }

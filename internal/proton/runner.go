@@ -38,11 +38,23 @@ func Run(exePath string, cfg *config.Config) error {
 		os.MkdirAll(logDir, 0o755)
 	}
 
-	args := buildCommand(version, absExe, cfg)
+	var args []string
+	var env []string
+	if cfg.UseUmu != nil && *cfg.UseUmu {
+		umuPath, err := exec.LookPath("umu-run")
+		if err != nil {
+			return fmt.Errorf("umu-run not found in PATH; install umu-launcher or set use_umu = false in config")
+		}
+		args = buildUmuCommand(umuPath, absExe, cfg)
+		env = buildUmuEnv(version, prefixPath, cfg)
+	} else {
+		args = buildCommand(version, absExe, cfg)
+		env = buildEnv(version, absExe, prefixPath, cfg)
+	}
 
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Dir = filepath.Dir(absExe)
-	cmd.Env = buildEnv(version, absExe, prefixPath, cfg)
+	cmd.Env = env
 
 	logFile, logErr := openLogFile(absExe)
 	if logErr == nil {
@@ -67,7 +79,7 @@ func Run(exePath string, cfg *config.Config) error {
 	return nil
 }
 
-func buildCommand(version Version, exePath string, cfg *config.Config) []string {
+func buildWrapperArgs(cfg *config.Config) []string {
 	var args []string
 
 	if cfg.GameMode != nil && *cfg.GameMode {
@@ -101,9 +113,44 @@ func buildCommand(version Version, exePath string, cfg *config.Config) []string 
 		}
 	}
 
+	return args
+}
+
+func buildCommand(version Version, exePath string, cfg *config.Config) []string {
+	args := buildWrapperArgs(cfg)
+
 	args = append(args, version.Path, "run", exePath)
 	args = append(args, cfg.LaunchArgs...)
 	return args
+}
+
+func buildUmuCommand(umuPath, exePath string, cfg *config.Config) []string {
+	args := buildWrapperArgs(cfg)
+	args = append(args, umuPath, exePath)
+	args = append(args, cfg.LaunchArgs...)
+	return args
+}
+
+func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []string {
+	env := os.Environ()
+	set := func(key, val string) {
+		env = append(env, key+"="+val)
+	}
+
+	gameID := "umu-default"
+	if cfg.GameID != nil && *cfg.GameID != "" {
+		gameID = *cfg.GameID
+	}
+	set("GAMEID", gameID)
+	set("PROTONPATH", filepath.Dir(version.Path))
+	set("WINEPREFIX", filepath.Join(prefixPath, "pfx"))
+	set("STEAM_COMPAT_DATA_PATH", prefixPath)
+
+	for k, v := range cfg.Env {
+		set(k, v)
+	}
+
+	return env
 }
 
 func buildEnv(version Version, exePath, prefixPath string, cfg *config.Config) []string {

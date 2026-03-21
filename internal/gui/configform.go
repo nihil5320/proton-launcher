@@ -41,6 +41,11 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 	currentMangoHud := cfg.MangoHud != nil && *cfg.MangoHud
 	currentGamescope := cfg.Gamescope != nil && *cfg.Gamescope
 	currentGameMode := cfg.GameMode != nil && *cfg.GameMode
+	currentUseUmu := cfg.UseUmu == nil || (cfg.UseUmu != nil && *cfg.UseUmu)
+	currentGameID := ""
+	if cfg.GameID != nil {
+		currentGameID = *cfg.GameID
+	}
 
 	var envLines []string
 	for k, v := range cfg.Env {
@@ -65,6 +70,13 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 	argsEntry.SetText(currentArgs)
 	argsEntry.SetPlaceHolder("-fullscreen -skipintro")
 
+	useUmuCheck := widget.NewCheck("Use umu-run", nil)
+	useUmuCheck.SetChecked(currentUseUmu)
+
+	gameIDEntry := widget.NewEntry()
+	gameIDEntry.SetText(currentGameID)
+	gameIDEntry.SetPlaceHolder("umu-default")
+
 	mangoHudCheck := widget.NewCheck("MangoHud", nil)
 	mangoHudCheck.SetChecked(currentMangoHud)
 
@@ -80,6 +92,8 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 		Items: []*widget.FormItem{
 			{Text: "Proton Version", Widget: versionSelect},
 			{Text: "Prefix Path", Widget: prefixEntry},
+			{Text: "Use umu-run", Widget: useUmuCheck},
+			{Text: "Game ID", Widget: gameIDEntry},
 			{Text: "Environment", Widget: envEntry},
 			{Text: "Launch Args", Widget: argsEntry},
 			{Text: "Options", Widget: checks},
@@ -97,6 +111,11 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 			newCfg.MangoHud = config.BoolPtr(mangoHudCheck.Checked)
 			newCfg.Gamescope = config.BoolPtr(gamescopeCheck.Checked)
 			newCfg.GameMode = config.BoolPtr(gameModeCheck.Checked)
+			newCfg.UseUmu = config.BoolPtr(useUmuCheck.Checked)
+
+			if gameIDEntry.Text != "" {
+				newCfg.GameID = config.StringPtr(gameIDEntry.Text)
+			}
 
 			if argsEntry.Text != "" {
 				newCfg.LaunchArgs = strings.Fields(argsEntry.Text)

@@ -12,7 +12,9 @@ Per-game fields override global fields. Any field not present in the per-game fi
 | Field | Type | Default | Description |
 | ----- | ---- | ------- | ----------- |
 | `proton_version` | string | (auto-detected) | Name of the Proton version to use. Must match a discovered version from `proton-launcher list`. |
-| `prefix_path` | string | `~/.local/share/proton-launcher/prefixes/default` | Path to the Wine/Proton prefix directory. Created automatically if it doesn't exist. |
+| `prefix_path` | string | `~/.local/share/proton-launcher/prefixes/<game-name>` | Path to the Wine/Proton prefix directory. Created automatically if it doesn't exist. Defaults to a per-game directory derived from the executable name. |
+| `use_umu` | bool | `true` | Launch via `umu-run` (recommended). Provides the Steam Linux Runtime container, ProtonFixes, and proper environment setup. Set to `false` for direct Proton invocation. |
+| `game_id` | string | `"umu-default"` | UMU game ID for ProtonFixes lookup. Only used when `use_umu = true`. Find game IDs at [umu-database](https://github.com/Open-Wine-Components/umu-database). |
 | `launch_args` | string array | `[]` | Extra arguments passed to the executable. |
 | `mangohud` | bool | `false` | Wrap the launch command with `mangohud`. Requires MangoHud to be installed. |
 | `gamescope` | bool | `false` | Wrap the launch command with `gamescope`. Requires Gamescope to be installed. |
@@ -36,7 +38,8 @@ Only used when `gamescope = true`.
 
 ```toml
 proton_version = "GE-Proton10-32"
-prefix_path = "~/.local/share/proton-launcher/prefixes/default"
+use_umu = true
+# game_id = "umu-default"
 mangohud = false
 gamescope = false
 gamemode = false
@@ -57,6 +60,7 @@ Only include fields you want to override. Everything else inherits from global.
 ```toml
 proton_version = "GE-Proton10-32"
 prefix_path = "~/.local/share/proton-launcher/prefixes/my-game"
+game_id = "umu-35140"
 launch_args = ["-fullscreen", "-skipintro"]
 mangohud = true
 
@@ -67,13 +71,27 @@ WINEDLLOVERRIDES = "d3d11=n"
 
 ## Prefix management
 
-The default prefix is shared across all games that don't specify their own `prefix_path`. To isolate a game, set `prefix_path` in its per-game config to a unique directory. The prefix directory is created automatically on first launch.
-
-Recommended convention:
+By default, each game gets its own isolated prefix directory derived from the executable name:
 
 ```text
 ~/.local/share/proton-launcher/prefixes/<game-name>/
 ```
+
+For example, launching `PS.exe` uses the prefix `~/.local/share/proton-launcher/prefixes/ps/`.
+
+To override this, set `prefix_path` in the per-game config to a custom directory. The prefix directory is created automatically on first launch.
+
+## umu-run
+
+By default, proton-launcher uses [umu-run](https://github.com/Open-Wine-Components/umu-launcher) to launch games. This provides:
+
+- **Steam Linux Runtime container** (pressure-vessel/sniper) — ensures library compatibility
+- **ProtonFixes** — automatic game-specific patches and workarounds
+- **Proper environment setup** — `GAMEID`, `PROTONPATH`, and container mounts
+
+This is required for modern Proton versions (especially SLR builds like `proton-cachyos-slr`). If you need direct Proton invocation (e.g., for older Wine/Proton versions), set `use_umu = false`.
+
+To apply game-specific ProtonFixes, set `game_id` to the game's UMU ID (e.g., `umu-35140` for Batman: Arkham Asylum). Find IDs in the [umu-database](https://github.com/Open-Wine-Components/umu-database).
 
 ## Editing config
 
