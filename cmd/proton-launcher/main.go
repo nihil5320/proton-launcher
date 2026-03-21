@@ -175,18 +175,13 @@ func ensureGlobalConfig() {
 
 	versions := proton.Discover()
 	cfg := &config.Config{
+		UseUmu:    config.BoolPtr(true),
 		MangoHud:  config.BoolPtr(false),
 		Gamescope: config.BoolPtr(false),
 		GameMode:  config.BoolPtr(false),
 	}
 	if len(versions) > 0 {
 		cfg.ProtonVersion = config.StringPtr(versions[0].Name)
-	}
-
-	home, err := os.UserHomeDir()
-	if err == nil {
-		def := filepath.Join(home, ".local", "share", "proton-launcher", "prefixes", "default")
-		cfg.PrefixPath = &def
 	}
 
 	config.Save(cfgPath, cfg)

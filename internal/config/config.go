@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -90,8 +92,25 @@ func Resolve(exePath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Save the global prefix_path as the base directory before merging,
+	// so per-game prefix_path can fully override it.
+	prefixBase := global.PrefixPath
+
 	merged := Merge(global, game)
 	applyDefaults(merged, exePath)
+
+	// If the per-game config doesn't set its own prefix_path,
+	// derive a per-game prefix under the base directory.
+	if game.PrefixPath == nil {
+		base := defaultPrefixBase()
+		if prefixBase != nil {
+			base = ExpandPath(*prefixBase)
+		}
+		name := sanitizeGameName(exePath)
+		merged.PrefixPath = StringPtr(filepath.Join(base, name))
+	}
+
 	return merged, nil
 }
 
@@ -164,6 +183,14 @@ func ExpandPath(p string) string {
 	return p
 }
 
+func defaultPrefixBase() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".local", "share", "proton-launcher", "prefixes")
+}
+
 func applyDefaults(cfg *Config, exePath string) {
 	if cfg.UseUmu == nil {
 		cfg.UseUmu = BoolPtr(true)
@@ -180,14 +207,6 @@ func applyDefaults(cfg *Config, exePath string) {
 	if cfg.GameMode == nil {
 		cfg.GameMode = BoolPtr(false)
 	}
-	if cfg.PrefixPath == nil {
-		dataDir, err := os.UserHomeDir()
-		if err == nil {
-			name := sanitizeGameName(exePath)
-			def := filepath.Join(dataDir, ".local", "share", "proton-launcher", "prefixes", name)
-			cfg.PrefixPath = &def
-		}
-	}
 	if cfg.Env == nil {
 		cfg.Env = make(map[string]string)
 	}
@@ -196,14 +215,22 @@ func applyDefaults(cfg *Config, exePath string) {
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
 
 func sanitizeGameName(exePath string) string {
-	name := strings.TrimSuffix(filepath.Base(exePath), filepath.Ext(exePath))
+	abs, err := filepath.Abs(exePath)
+	if err != nil {
+		abs = exePath
+	}
+	dir := filepath.Dir(abs)
+	hash := sha256.Sum256([]byte(dir))
+	shortHash := hex.EncodeToString(hash[:4])
+
+	name := strings.TrimSuffix(filepath.Base(abs), filepath.Ext(abs))
 	name = strings.ToLower(name)
 	name = nonAlphanumeric.ReplaceAllString(name, "-")
 	name = strings.Trim(name, "-")
 	if name == "" {
-		return "default"
+		return shortHash
 	}
-	return name
+	return name + "-" + shortHash
 }
 
 func StringPtr(s string) *string { return &s }

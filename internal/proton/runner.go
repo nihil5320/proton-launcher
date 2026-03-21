@@ -49,7 +49,7 @@ func Run(exePath string, cfg *config.Config) error {
 		env = buildUmuEnv(version, prefixPath, cfg)
 	} else {
 		args = buildCommand(version, absExe, cfg)
-		env = buildEnv(version, absExe, prefixPath, cfg)
+		env = buildEnv(version, prefixPath, cfg)
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
@@ -143,7 +143,6 @@ func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []strin
 	}
 	set("GAMEID", gameID)
 	set("PROTONPATH", filepath.Dir(version.Path))
-	set("WINEPREFIX", filepath.Join(prefixPath, "pfx"))
 	set("STEAM_COMPAT_DATA_PATH", prefixPath)
 
 	for k, v := range cfg.Env {
@@ -153,7 +152,7 @@ func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []strin
 	return env
 }
 
-func buildEnv(version Version, exePath, prefixPath string, cfg *config.Config) []string {
+func buildEnv(version Version, prefixPath string, cfg *config.Config) []string {
 	env := os.Environ()
 
 	protonDir := filepath.Dir(version.Path)
@@ -205,5 +204,5 @@ func openLogFile(exePath string) (*os.File, error) {
 	}
 	name := strings.TrimSuffix(filepath.Base(exePath), filepath.Ext(exePath))
 	logPath := filepath.Join(logDir, name+".log")
-	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	return os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 }

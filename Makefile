@@ -37,7 +37,13 @@ uninstall:
 	@if command -v update-desktop-database >/dev/null 2>&1 && [ -z "$(DESTDIR)" ]; then \
 		update-desktop-database $(APPDIR); \
 	fi
-	@echo "Uninstalled proton-launcher"
+	@if [ -z "$(DESTDIR)" ]; then \
+		rm -rf $(HOME)/.config/proton-launcher; \
+		rm -rf $(HOME)/.local/share/proton-launcher; \
+		echo "Uninstalled proton-launcher (binary, desktop files, config, and data)"; \
+	else \
+		echo "Uninstalled proton-launcher (binary and desktop files only; DESTDIR set, skipping user data)"; \
+	fi
 
 clean:
 	@if [ "$(BUILD_DIR)" = "/" ] || [ "$(BUILD_DIR)" = "." ] || [ -z "$(BUILD_DIR)" ]; then \

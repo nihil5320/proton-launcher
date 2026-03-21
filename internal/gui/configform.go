@@ -59,7 +59,7 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 
 	prefixEntry := widget.NewEntry()
 	prefixEntry.SetText(currentPrefix)
-	prefixEntry.SetPlaceHolder("~/.local/share/proton-launcher/prefixes/default")
+	prefixEntry.SetPlaceHolder("Leave empty for automatic per-game prefix")
 
 	envEntry := widget.NewMultiLineEntry()
 	envEntry.SetText(currentEnv)
