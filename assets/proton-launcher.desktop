@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Proton Launcher
+Comment=Launch Windows executables with Proton
+Exec=proton-launcher run %f
+Icon=wine
+Terminal=false
+MimeType=application/x-ms-dos-executable;application/x-wine-extension-exe;
+Categories=Game;
+NoDisplay=true

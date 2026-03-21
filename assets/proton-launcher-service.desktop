@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Service
+MimeType=application/x-ms-dos-executable;application/x-wine-extension-exe;
+Actions=ConfigureProton;CreateShortcut;
+
+[Desktop Action ConfigureProton]
+Name=Configure Proton Settings
+Icon=preferences-system
+Exec=proton-launcher config %f
+
+[Desktop Action CreateShortcut]
+Name=Create Desktop Shortcut
+Icon=document-new
+Exec=proton-launcher desktop %f
