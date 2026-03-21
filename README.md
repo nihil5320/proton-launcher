@@ -1,13 +1,14 @@
 # proton-launcher
 
-A command-line tool for launching Windows executables via Proton on Linux. Integrates with KDE Dolphin's right-click context menu and supports double-click launching by registering as a MIME handler for `.exe` files.
+A shell-integrated launcher for running Windows applications via Proton on Linux -- no visible third-party launcher required. It plugs directly into KDE Dolphin's right-click context menu and registers as a handler for `.exe` files, so launching a game feels native.
 
-No persistent GUI runs in the background. The binary is invoked per action (launch, configure, create shortcut) and exits when done.
+Nothing runs in the background. Each action (launch, configure, create shortcut) invokes the binary, does its job, and exits immediately.
 
 ## Requirements
 
-- Go 1.21+
+- Go 1.26+
 - Proton (GE-Proton, Valve Proton via Steam, or Lutris Wine runners)
+- [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) (provides umu-run; can be disabled via config)
 - KDE Plasma (for service menu integration)
 - Optional: MangoHud, Gamescope, GameMode
 
@@ -48,7 +49,7 @@ make uninstall
 
 ## Usage
 
-Most interaction happens through KDE's UI rather than the command line.
+All day-to-day interaction happens through KDE's shell integration -- there is no launcher window to manage.
 
 ### Dolphin context menu
 
@@ -68,6 +69,8 @@ After setting the MIME default (see installation), double-clicking an `.exe` in 
 
 ### CLI
 
+The CLI exists to support the shell integration above, but can be used directly if needed:
+
 ```sh
 proton-launcher run <exe>            # launch a game
 proton-launcher config               # open global config GUI
@@ -86,9 +89,9 @@ See [docs/configuration.md](docs/configuration.md) for the full config reference
 Configuration uses TOML with two tiers:
 
 - Global: `~/.config/proton-launcher/config.toml`
-- Per-game: `<game-dir>/.proton-launcher.toml`
+- Per-game: `~/.config/proton-launcher/games/<game-name>.toml`
 
-Per-game settings override global settings. Fields not set in the per-game file inherit from global. A default global config is created on first launch using the newest discovered Proton version.
+Per-game configs are stored centrally, named using a slug derived from the executable path. Per-game fields override global fields; anything not set inherits from global. A default global config is created on first launch.
 
 ## Proton discovery
 

@@ -76,15 +76,16 @@ func Run(exePath string, cfg *config.Config) error {
 
 	var args []string
 	var env []string
+	var warnings []string
 	if cfg.UseUmu != nil && *cfg.UseUmu {
 		umuPath, err := exec.LookPath("umu-run")
 		if err != nil {
 			return fmt.Errorf("umu-run not found in PATH; install umu-launcher or set use_umu = false in config")
 		}
-		args = buildUmuCommand(umuPath, absExe, cfg)
+		args, warnings = buildUmuCommand(umuPath, absExe, cfg)
 		env = buildUmuEnv(version, prefixPath, cfg)
 	} else {
-		args = buildCommand(version, absExe, cfg)
+		args, warnings = buildCommand(version, absExe, cfg)
 		env = buildEnv(version, prefixPath, cfg)
 	}
 
@@ -94,6 +95,9 @@ func Run(exePath string, cfg *config.Config) error {
 
 	logFile, logErr := openLogFile(absExe)
 	if logErr == nil {
+		for _, w := range warnings {
+			fmt.Fprintf(logFile, "WARNING: %s\n", w)
+		}
 		cmd.Stdout = logFile
 		cmd.Stderr = logFile
 	}
@@ -120,18 +124,23 @@ func Run(exePath string, cfg *config.Config) error {
 	return nil
 }
 
-func buildWrapperArgs(cfg *config.Config) []string {
+func buildWrapperArgs(cfg *config.Config) ([]string, []string) {
 	var args []string
+	var warnings []string
 
 	if cfg.GameMode != nil && *cfg.GameMode {
 		if _, err := exec.LookPath("gamemoderun"); err == nil {
 			args = append(args, "gamemoderun")
+		} else {
+			warnings = append(warnings, "gamemode enabled in config but gamemoderun not found in PATH; skipping")
 		}
 	}
 
 	if cfg.MangoHud != nil && *cfg.MangoHud {
 		if _, err := exec.LookPath("mangohud"); err == nil {
 			args = append(args, "mangohud")
+		} else {
+			warnings = append(warnings, "mangohud enabled in config but not found in PATH; skipping")
 		}
 	}
 
@@ -151,25 +160,27 @@ func buildWrapperArgs(cfg *config.Config) []string {
 			}
 			gsArgs = append(gsArgs, "--")
 			args = append(args, gsArgs...)
+		} else {
+			warnings = append(warnings, "gamescope enabled in config but not found in PATH; skipping")
 		}
 	}
 
-	return args
+	return args, warnings
 }
 
-func buildCommand(version Version, exePath string, cfg *config.Config) []string {
-	args := buildWrapperArgs(cfg)
+func buildCommand(version Version, exePath string, cfg *config.Config) ([]string, []string) {
+	args, warnings := buildWrapperArgs(cfg)
 
 	args = append(args, version.Path, "run", exePath)
 	args = append(args, cfg.LaunchArgs...)
-	return args
+	return args, warnings
 }
 
-func buildUmuCommand(umuPath, exePath string, cfg *config.Config) []string {
-	args := buildWrapperArgs(cfg)
+func buildUmuCommand(umuPath, exePath string, cfg *config.Config) ([]string, []string) {
+	args, warnings := buildWrapperArgs(cfg)
 	args = append(args, umuPath, exePath)
 	args = append(args, cfg.LaunchArgs...)
-	return args
+	return args, warnings
 }
 
 func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []string {

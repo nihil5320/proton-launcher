@@ -119,7 +119,7 @@ func Resolve(exePath string) (*Config, error) {
 
 	// If the per-game config doesn't set its own prefix_path,
 	// derive a per-game prefix under the base directory.
-	if game.PrefixPath == nil {
+	if game.PrefixPath == nil || *game.PrefixPath == "" {
 		base := DefaultPrefixBase()
 		if prefixBase != nil {
 			base = ExpandPath(*prefixBase)

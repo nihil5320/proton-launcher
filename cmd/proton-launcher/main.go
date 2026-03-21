@@ -183,7 +183,9 @@ func ensureGlobalConfig() {
 		cfg.ProtonVersion = config.StringPtr(versions[0].Name)
 	}
 
-	config.Save(cfgPath, cfg)
+	if err := config.Save(cfgPath, cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save default config: %v\n", err)
+	}
 }
 
 // showError displays an error to the user. Uses kdialog if available (KDE),

@@ -18,6 +18,18 @@ Type=Application
 Categories=Game;
 `
 
+// escapeExecPath escapes special characters inside a double-quoted Exec value
+// per the freedesktop Desktop Entry spec.
+func escapeExecPath(p string) string {
+	r := strings.NewReplacer(
+		"\\", "\\\\",
+		"\"", "\\\"",
+		"$", "\\$",
+		"`", "\\`",
+	)
+	return r.Replace(p)
+}
+
 func CreateShortcut(exePath, name string) (string, error) {
 	absExe, err := filepath.Abs(exePath)
 	if err != nil {
@@ -52,7 +64,7 @@ func CreateShortcut(exePath, name string) (string, error) {
 		ExePath string
 	}{
 		Name:    name,
-		ExePath: absExe,
+		ExePath: escapeExecPath(absExe),
 	}
 	if err := tmpl.Execute(f, data); err != nil {
 		return "", fmt.Errorf("writing desktop file: %w", err)

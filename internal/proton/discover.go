@@ -159,6 +159,8 @@ func dedup(versions []Version) []Version {
 		key := v.Path
 		if resolved, err := filepath.EvalSymlinks(v.Path); err == nil {
 			key = resolved
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: could not resolve symlink for %s: %v\n", v.Path, err)
 		}
 		if seen[key] {
 			continue
