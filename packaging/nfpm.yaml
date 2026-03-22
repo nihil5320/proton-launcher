@@ -1,7 +1,7 @@
 name: proton-launcher
 arch: amd64
 platform: linux
-version: v0.1.0
+version: v0.1.1
 maintainer: nihil5320 <https://github.com/nihil5320>
 description: Shell-integrated launcher for running Windows applications via Proton on Linux
 vendor: nihil5320
