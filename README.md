@@ -6,7 +6,7 @@ Nothing runs in the background. Each action (launch, configure, create shortcut)
 
 ## Requirements
 
-- Go 1.26+
+- Go 1.26.1+
 - Proton (GE-Proton, Valve Proton via Steam, or Lutris Wine runners)
 - [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) (provides umu-run; can be disabled via config)
 - KDE Plasma (for service menu integration)
@@ -102,15 +102,15 @@ proton-launcher scans these locations for Proton and Wine installations:
 
 - `~/.steam/root/compatibilitytools.d/`
 - `~/.local/share/Steam/compatibilitytools.d/`
-- `~/.local/share/Steam/steamapps/common/Proton*/`
-- `~/.local/share/lutris/runners/wine/`
+- `~/.local/share/Steam/steamapps/common/` (directories starting with `Proton`)
+- `~/.local/share/lutris/runners/wine/` (Proton runners only)
 - `/usr/share/steam/compatibilitytools.d/`
 - `~/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d/` (Flatpak)
-- `~/.var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/Proton*/` (Flatpak)
+- `~/.var/app/com.valvesoftware.Steam/data/Steam/steamapps/common/` (Flatpak, directories starting with `Proton`)
 
 Run `proton-launcher list` to see what was discovered.
 
-Discovered versions are sorted by preference: CachyOS Proton > Valve Proton (stable) > GE-Proton > Experimental/Hotfix > Lutris > other. Within each tier, newer versions sort first. The first discovered version is used as the default if no global config exists.
+Discovered versions are sorted by preference: CachyOS Proton > Steam-bundled Proton (non-experimental) > GE-Proton > Experimental/Hotfix > Lutris > other. Within each tier, newer versions sort first. The first discovered version is used as the default if no global config exists. If a configured version is no longer found, the launcher falls back to the best available version.
 
 ## Logs
 
@@ -119,6 +119,8 @@ Launch output (stdout/stderr from Proton) is written to:
 ```text
 ~/.local/share/proton-launcher/logs/<game-name>-<hash>.log
 ```
+
+The log file is overwritten on each launch (only the most recent session is kept).
 
 ## License
 

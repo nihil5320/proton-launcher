@@ -188,11 +188,15 @@ func ensureGlobalConfig() {
 	}
 }
 
-// showError displays an error to the user. Uses kdialog if available (KDE),
-// otherwise prints to stderr.
+// showError displays an error to the user. Tries kdialog (KDE), then zenity
+// (GTK), then notify-send as a fallback. Always prints to stderr.
 func showError(msg string) {
 	fmt.Fprintln(os.Stderr, msg)
 	if _, err := exec.LookPath("kdialog"); err == nil {
 		exec.Command("kdialog", "--error", msg, "--title", "Proton Launcher").Run()
+	} else if _, err := exec.LookPath("zenity"); err == nil {
+		exec.Command("zenity", "--error", "--text", msg, "--title", "Proton Launcher").Run()
+	} else if _, err := exec.LookPath("notify-send"); err == nil {
+		exec.Command("notify-send", "-a", "Proton Launcher", "Proton Launcher", msg).Run()
 	}
 }

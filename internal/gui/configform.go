@@ -87,24 +87,9 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 
 	gameIDEntry := widget.NewEntry()
 	gameIDEntry.SetText(currentGameID)
-	gameIDEntry.SetPlaceHolder("umu-default")
+	gameIDEntry.SetPlaceHolder(config.DefaultGameID)
 
-	localeOptions := []string{
-		"System Default",
-		"English (en_US.UTF-8)",
-		"French (fr_FR.UTF-8)",
-		"German (de_DE.UTF-8)",
-		"Spanish (es_ES.UTF-8)",
-		"Italian (it_IT.UTF-8)",
-		"Portuguese - Brazil (pt_BR.UTF-8)",
-		"Japanese (ja_JP.UTF-8)",
-		"Chinese - Simplified (zh_CN.UTF-8)",
-		"Chinese - Traditional (zh_TW.UTF-8)",
-		"Korean (ko_KR.UTF-8)",
-		"Thai (th_TH.UTF-8)",
-		"Russian (ru_RU.UTF-8)",
-		"Polish (pl_PL.UTF-8)",
-	}
+	localeOptions := localeOptionsList()
 	localeSelect := widget.NewSelect(localeOptions, nil)
 	if currentLocale != "" {
 		localeSelect.SetSelected(localeLabelFromCode(currentLocale))
@@ -124,18 +109,6 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 	gsHeightEntry.SetPlaceHolder("e.g. 1080")
 	gsFullscreenCheck := widget.NewCheck("Fullscreen", nil)
 
-	updateGamescopeFields := func(enabled bool) {
-		if enabled {
-			gsWidthEntry.Enable()
-			gsHeightEntry.Enable()
-			gsFullscreenCheck.Enable()
-		} else {
-			gsWidthEntry.Disable()
-			gsHeightEntry.Disable()
-			gsFullscreenCheck.Disable()
-		}
-	}
-
 	if cfg.GamescopeOpts != nil {
 		if cfg.GamescopeOpts.Width != nil {
 			gsWidthEntry.SetText(fmt.Sprintf("%d", *cfg.GamescopeOpts.Width))
@@ -147,16 +120,45 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 			gsFullscreenCheck.SetChecked(*cfg.GamescopeOpts.Fullscreen)
 		}
 	}
-	updateGamescopeFields(currentGamescope)
+
+	gamescopeSection := widget.NewForm(
+		widget.NewFormItem("Gamescope Width", gsWidthEntry),
+		widget.NewFormItem("Gamescope Height", gsHeightEntry),
+		widget.NewFormItem("Gamescope Fullscreen", gsFullscreenCheck),
+	)
+	if !currentGamescope {
+		gamescopeSection.Hide()
+	}
 
 	gamescopeCheck.OnChanged = func(checked bool) {
-		updateGamescopeFields(checked)
+		if checked {
+			gamescopeSection.Show()
+		} else {
+			gamescopeSection.Hide()
+		}
+		w.Resize(fyne.NewSize(500, w.Content().MinSize().Height))
 	}
 
 	gameModeCheck := widget.NewCheck("GameMode", nil)
 	gameModeCheck.SetChecked(currentGameMode)
 
 	checks := container.NewHBox(mangoHudCheck, gamescopeCheck, gameModeCheck)
+
+	formFields := &formState{
+		versionSelect:     versionSelect,
+		prefixEntry:       prefixEntry,
+		useUmuCheck:       useUmuCheck,
+		gameIDEntry:       gameIDEntry,
+		localeSelect:      localeSelect,
+		envEntry:          envEntry,
+		argsEntry:         argsEntry,
+		mangoHudCheck:     mangoHudCheck,
+		gamescopeCheck:    gamescopeCheck,
+		gameModeCheck:     gameModeCheck,
+		gsWidthEntry:      gsWidthEntry,
+		gsHeightEntry:     gsHeightEntry,
+		gsFullscreenCheck: gsFullscreenCheck,
+	}
 
 	form := &widget.Form{
 		Items: []*widget.FormItem{
@@ -168,71 +170,93 @@ func ShowConfigForm(cfgPath string, cfg *config.Config, exePath string) {
 			{Text: "Environment", Widget: envEntry},
 			{Text: "Launch Args", Widget: argsEntry},
 			{Text: "Options", Widget: checks},
-			{Text: "Gamescope Width", Widget: gsWidthEntry},
-			{Text: "Gamescope Height", Widget: gsHeightEntry},
-			{Text: "Gamescope Fullscreen", Widget: gsFullscreenCheck},
 		},
-		OnSubmit: func() {
-			newCfg := &config.Config{}
-
-			if versionSelect.Selected != "" {
-				newCfg.ProtonVersion = config.StringPtr(versionSelect.Selected)
-			}
-			if prefixEntry.Text != "" {
-				newCfg.PrefixPath = config.StringPtr(prefixEntry.Text)
-			}
-
-			newCfg.MangoHud = config.BoolPtr(mangoHudCheck.Checked)
-			newCfg.Gamescope = config.BoolPtr(gamescopeCheck.Checked)
-			newCfg.GameMode = config.BoolPtr(gameModeCheck.Checked)
-			newCfg.UseUmu = config.BoolPtr(useUmuCheck.Checked)
-
-			if gsWidthEntry.Text != "" || gsHeightEntry.Text != "" || gsFullscreenCheck.Checked {
-				opts := &config.GamescopeOpts{}
-				if w, err := strconv.Atoi(gsWidthEntry.Text); err == nil && w > 0 {
-					opts.Width = config.IntPtr(w)
-				}
-				if h, err := strconv.Atoi(gsHeightEntry.Text); err == nil && h > 0 {
-					opts.Height = config.IntPtr(h)
-				}
-				if gsFullscreenCheck.Checked {
-					opts.Fullscreen = config.BoolPtr(true)
-				}
-				newCfg.GamescopeOpts = opts
-			}
-
-			if gameIDEntry.Text != "" {
-				newCfg.GameID = config.StringPtr(gameIDEntry.Text)
-			}
-
-			if localeSelect.Selected != "" && localeSelect.Selected != "System Default" {
-				newCfg.Locale = config.StringPtr(localeCodeFromLabel(localeSelect.Selected))
-			}
-
-			if argsEntry.Text != "" {
-				newCfg.LaunchArgs = parseLines(argsEntry.Text)
-			}
-
-			if envEntry.Text != "" {
-				newCfg.Env = parseEnvLines(envEntry.Text)
-			}
-
-			if err := config.Save(cfgPath, newCfg); err != nil {
-				dialog.ShowError(err, w)
-				return
-			}
-			a.Quit()
-		},
-		OnCancel: func() {
-			a.Quit()
-		},
-		SubmitText: "Save",
-		CancelText: "Cancel",
 	}
 
-	w.SetContent(container.NewVBox(form, dangerZone(w, exePath)))
+	saveBtn := widget.NewButton("Save", func() {
+		newCfg := buildConfigFromForm(formFields)
+		if err := config.Save(cfgPath, newCfg); err != nil {
+			dialog.ShowError(err, w)
+			return
+		}
+		a.SendNotification(fyne.NewNotification("Saved", "Configuration saved."))
+		a.Quit()
+	})
+	saveBtn.Importance = widget.HighImportance
+	cancelBtn := widget.NewButton("Cancel", func() {
+		a.Quit()
+	})
+	actionButtons := container.NewGridWithColumns(2, saveBtn, cancelBtn)
+
+	w.SetContent(container.NewVBox(form, gamescopeSection, actionButtons, dangerZone(w, exePath)))
 	w.Resize(fyne.NewSize(500, w.Content().MinSize().Height))
 	w.ShowAndRun()
+}
+
+// formState holds references to all form widgets so the save handler can
+// read their values without closing over dozens of individual variables.
+type formState struct {
+	versionSelect     *widget.Select
+	prefixEntry       *widget.Entry
+	useUmuCheck       *widget.Check
+	gameIDEntry       *widget.Entry
+	localeSelect      *widget.Select
+	envEntry          *widget.Entry
+	argsEntry         *widget.Entry
+	mangoHudCheck     *widget.Check
+	gamescopeCheck    *widget.Check
+	gameModeCheck     *widget.Check
+	gsWidthEntry      *widget.Entry
+	gsHeightEntry     *widget.Entry
+	gsFullscreenCheck *widget.Check
+}
+
+func buildConfigFromForm(f *formState) *config.Config {
+	newCfg := &config.Config{}
+
+	if f.versionSelect.Selected != "" {
+		newCfg.ProtonVersion = config.StringPtr(f.versionSelect.Selected)
+	}
+	if f.prefixEntry.Text != "" {
+		newCfg.PrefixPath = config.StringPtr(f.prefixEntry.Text)
+	}
+
+	newCfg.MangoHud = config.BoolPtr(f.mangoHudCheck.Checked)
+	newCfg.Gamescope = config.BoolPtr(f.gamescopeCheck.Checked)
+	newCfg.GameMode = config.BoolPtr(f.gameModeCheck.Checked)
+	newCfg.UseUmu = config.BoolPtr(f.useUmuCheck.Checked)
+
+	if f.gsWidthEntry.Text != "" || f.gsHeightEntry.Text != "" || f.gsFullscreenCheck.Checked {
+		opts := &config.GamescopeOpts{}
+		if w, err := strconv.Atoi(f.gsWidthEntry.Text); err == nil && w > 0 {
+			opts.Width = config.IntPtr(w)
+		}
+		if h, err := strconv.Atoi(f.gsHeightEntry.Text); err == nil && h > 0 {
+			opts.Height = config.IntPtr(h)
+		}
+		if f.gsFullscreenCheck.Checked {
+			opts.Fullscreen = config.BoolPtr(true)
+		}
+		newCfg.GamescopeOpts = opts
+	}
+
+	if f.gameIDEntry.Text != "" {
+		newCfg.GameID = config.StringPtr(f.gameIDEntry.Text)
+	}
+
+	if f.localeSelect.Selected != "" && f.localeSelect.Selected != "System Default" {
+		newCfg.Locale = config.StringPtr(localeCodeFromLabel(f.localeSelect.Selected))
+	}
+
+	if f.argsEntry.Text != "" {
+		newCfg.LaunchArgs = parseLines(f.argsEntry.Text)
+	}
+
+	if f.envEntry.Text != "" {
+		newCfg.Env = parseEnvLines(f.envEntry.Text)
+	}
+
+	return newCfg
 }
 
 func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
@@ -247,7 +271,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 	var buttons []fyne.CanvasObject
 
 	if exePath != "" {
-		// Per-game actions
+		// Per-game actions (labels already short enough)
 		buttons = append(buttons,
 			widget.NewButton("Clear Prefix", func() {
 				dialog.ShowConfirm(
@@ -264,7 +288,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 						}
 					}, w)
 			}),
-			widget.NewButton("Delete Config", func() {
+			widget.NewButton("Clear Game Config", func() {
 				dialog.ShowConfirm(
 					"Delete Config?",
 					"This will delete the per-game configuration. The game will use global defaults on next launch.",
@@ -283,7 +307,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 	} else {
 		// Global actions
 		buttons = append(buttons,
-			widget.NewButton("Reset to Defaults", func() {
+			widget.NewButton("Set Defaults", func() {
 				dialog.ShowConfirm(
 					"Reset Global Config?",
 					"This will overwrite the global config with defaults.",
@@ -298,7 +322,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 						}
 					}, w)
 			}),
-			widget.NewButton("Clear All Prefixes", func() {
+			widget.NewButton("Clear Prefixes", func() {
 				dialog.ShowConfirm(
 					"Clear All Prefixes?",
 					"This will delete ALL Wine prefix directories. All game saves and Wine data in the default prefix location will be lost.",
@@ -313,7 +337,7 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 						}
 					}, w)
 			}),
-			widget.NewButton("Clear All Game Configs", func() {
+			widget.NewButton("Clear Game Config", func() {
 				dialog.ShowConfirm(
 					"Clear All Game Configs?",
 					"This will delete ALL per-game configuration files. Every game will revert to global defaults.",
@@ -331,9 +355,10 @@ func dangerZone(w fyne.Window, exePath string) fyne.CanvasObject {
 		)
 	}
 
-	header := widget.NewRichTextFromMarkdown("**Manage Data**")
+	header := widget.NewRichTextFromMarkdown("**Cleanup Tools**")
 	buttonRow := container.NewHBox(buttons...)
-	return container.NewVBox(widget.NewSeparator(), header, buttonRow)
+	row := container.NewBorder(nil, nil, header, buttonRow)
+	return container.NewVBox(widget.NewSeparator(), row)
 }
 
 func parseEnvLines(text string) map[string]string {
@@ -405,4 +430,13 @@ func localeCodeFromLabel(label string) string {
 		}
 	}
 	return label
+}
+
+func localeOptionsList() []string {
+	opts := make([]string, 0, len(localeLabels)+1)
+	opts = append(opts, "System Default")
+	for _, l := range localeLabels {
+		opts = append(opts, l.label)
+	}
+	return opts
 }

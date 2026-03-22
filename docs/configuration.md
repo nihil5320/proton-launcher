@@ -13,7 +13,7 @@ Per-game fields override global fields. Any field not present in the per-game fi
 
 | Field | Type | Default | Description |
 | ----- | ---- | ------- | ----------- |
-| `proton_version` | string | (auto-detected) | Name of the Proton version to use. Must match a discovered version from `proton-launcher list`. |
+| `proton_version` | string | (auto-detected) | Name of the Proton version to use. Should match a discovered version from `proton-launcher list`. If the configured version is not found, the launcher falls back to the best available version. |
 | `prefix_path` | string | `~/.local/share/proton-launcher/prefixes/<game-name>-<hash>` | Path to the Wine/Proton prefix directory. Created automatically if it doesn't exist. Defaults to a per-game directory derived from the executable name and parent directory hash. |
 | `use_umu` | bool | `true` | Launch via `umu-run` (recommended). Provides the Steam Linux Runtime container, ProtonFixes, and proper environment setup. Set to `false` for direct Proton invocation. |
 | `game_id` | string | `"umu-default"` | UMU game ID for ProtonFixes lookup. Only used when `use_umu = true`. Find game IDs at [umu-database](https://github.com/Open-Wine-Components/umu-database). |
@@ -26,6 +26,8 @@ Per-game fields override global fields. Any field not present in the per-game fi
 ### `[env]` table
 
 Key-value pairs added to the environment when launching. Per-game env vars are merged with global env vars (per-game values win on conflict).
+
+The following keys are reserved and silently ignored if set in `[env]`, as they are managed internally for prefix isolation and runner behaviour: `WINEPREFIX`, `STEAM_COMPAT_DATA_PATH`, `PROTONPATH`, `GAMEID`, `STEAM_COMPAT_TOOL_PATHS`, `STEAM_COMPAT_CLIENT_INSTALL_PATH`. Core process variables (`PATH`, `HOME`, `USER`, `SHELL`, `XDG_RUNTIME_DIR`, `DISPLAY`, `WAYLAND_DISPLAY`) are also protected.
 
 ### `[gamescope_opts]` table
 
@@ -108,7 +110,7 @@ Changes take effect on the next launch.
 
 ## Clearing data
 
-The config GUI includes a **Danger Zone** section with actions that require confirmation:
+The config GUI includes a **Cleanup Tools** section with actions that require confirmation:
 
 ### Per-game config panel
 

@@ -15,6 +15,13 @@ type Version struct {
 	Source string
 }
 
+// Version Source constants.
+const (
+	SourceSteamCompat  = "steam-compat"
+	SourceSteamBundled = "steam-bundled"
+	SourceLutris       = "lutris"
+)
+
 func Discover() []Version {
 	var versions []Version
 
@@ -30,7 +37,7 @@ func Discover() []Version {
 		filepath.Join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam", "compatibilitytools.d"),
 	}
 	for _, dir := range steamCompatDirs {
-		versions = append(versions, scanProtonDir(dir, "steam-compat")...)
+		versions = append(versions, scanProtonDir(dir, SourceSteamCompat)...)
 	}
 
 	steamApps := filepath.Join(home, ".local", "share", "Steam", "steamapps", "common")
@@ -46,7 +53,7 @@ func Discover() []Version {
 					versions = append(versions, Version{
 						Name:   e.Name(),
 						Path:   protonBin,
-						Source: "steam-bundled",
+						Source: SourceSteamBundled,
 					})
 				}
 			}
@@ -66,7 +73,7 @@ func Discover() []Version {
 				versions = append(versions, Version{
 					Name:   e.Name(),
 					Path:   protonBin,
-					Source: "lutris",
+					Source: SourceLutris,
 				})
 			}
 		}
@@ -160,13 +167,13 @@ func versionPriority(v Version) int {
 	switch {
 	case strings.Contains(low, "cachyos"):
 		return 0
-	case v.Source == "steam-bundled" && !strings.Contains(low, "experimental") && !strings.Contains(low, "hotfix"):
+	case v.Source == SourceSteamBundled && !strings.Contains(low, "experimental") && !strings.Contains(low, "hotfix"):
 		return 1
 	case strings.Contains(low, "ge-proton"):
 		return 2
 	case strings.Contains(low, "experimental") || strings.Contains(low, "hotfix"):
 		return 3
-	case v.Source == "lutris":
+	case v.Source == SourceLutris:
 		return 4
 	default:
 		return 5

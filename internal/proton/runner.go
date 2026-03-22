@@ -47,7 +47,8 @@ func cleanEnv() []string {
 }
 
 // reservedEnvKeys are environment variables that must not be overridden
-// by user [env] config, as they control prefix isolation and runner behaviour.
+// by user [env] config, as they control prefix isolation, runner behaviour,
+// or core process identity.
 var reservedEnvKeys = map[string]bool{
 	"WINEPREFIX":                       true,
 	"STEAM_COMPAT_DATA_PATH":           true,
@@ -55,6 +56,13 @@ var reservedEnvKeys = map[string]bool{
 	"GAMEID":                           true,
 	"STEAM_COMPAT_TOOL_PATHS":          true,
 	"STEAM_COMPAT_CLIENT_INSTALL_PATH": true,
+	"PATH":                             true,
+	"HOME":                             true,
+	"USER":                             true,
+	"SHELL":                            true,
+	"XDG_RUNTIME_DIR":                  true,
+	"DISPLAY":                          true,
+	"WAYLAND_DISPLAY":                  true,
 }
 
 func Run(exePath string, cfg *config.Config) error {
@@ -72,7 +80,13 @@ func Run(exePath string, cfg *config.Config) error {
 
 	version, err := FindVersion(*cfg.ProtonVersion)
 	if err != nil {
-		return err
+		// Configured version not found; fall back to best discovered version.
+		versions := Discover()
+		if len(versions) == 0 {
+			return fmt.Errorf("proton version %q not found and no other versions discovered", *cfg.ProtonVersion)
+		}
+		version = versions[0]
+		fmt.Fprintf(os.Stderr, "Warning: configured proton version %q not found, falling back to %s\n", *cfg.ProtonVersion, version.Name)
 	}
 
 	prefixPath := config.ExpandPath(*cfg.PrefixPath)
@@ -120,18 +134,22 @@ func Run(exePath string, cfg *config.Config) error {
 		return fmt.Errorf("starting proton: %w", err)
 	}
 
-	go func() {
-		waitErr := cmd.Wait()
-		if logFile != nil {
-			if waitErr != nil {
-				fmt.Fprintf(logFile, "\n--- proton exited with error: %v\n", waitErr)
-			} else {
-				fmt.Fprintf(logFile, "\n--- proton exited successfully\n")
-			}
-			logFile.Close()
+	// Wait for the child process in-line so the log file is closed
+	// deterministically. The caller (CLI main) exits after Run returns,
+	// so a background goroutine could be killed before flushing the log.
+	waitErr := cmd.Wait()
+	if logFile != nil {
+		if waitErr != nil {
+			fmt.Fprintf(logFile, "\n--- proton exited with error: %v\n", waitErr)
+		} else {
+			fmt.Fprintf(logFile, "\n--- proton exited successfully\n")
 		}
-	}()
+		logFile.Close()
+	}
 
+	if waitErr != nil {
+		return fmt.Errorf("proton exited with error: %w", waitErr)
+	}
 	return nil
 }
 
@@ -200,7 +218,7 @@ func buildUmuEnv(version Version, prefixPath string, cfg *config.Config) []strin
 		env = append(env, key+"="+val)
 	}
 
-	gameID := "umu-default"
+	gameID := config.DefaultGameID
 	if cfg.GameID != nil && *cfg.GameID != "" {
 		gameID = *cfg.GameID
 	}
@@ -258,6 +276,7 @@ func findSteamRoot() string {
 	candidates := []string{
 		filepath.Join(home, ".steam", "root"),
 		filepath.Join(home, ".local", "share", "Steam"),
+		filepath.Join(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam"),
 	}
 	for _, c := range candidates {
 		if info, err := os.Stat(c); err == nil && info.IsDir() {

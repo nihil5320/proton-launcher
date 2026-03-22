@@ -144,6 +144,9 @@ func Resolve(exePath string) (*Config, error) {
 		}
 		name := SanitizeGameName(exePath)
 		merged.PrefixPath = StringPtr(filepath.Join(base, name))
+	} else {
+		// Per-game config set an explicit prefix_path; expand ~ if used.
+		merged.PrefixPath = StringPtr(ExpandPath(*merged.PrefixPath))
 	}
 
 	return merged, nil
@@ -151,6 +154,19 @@ func Resolve(exePath string) (*Config, error) {
 
 func Merge(base, override *Config) *Config {
 	out := *base
+
+	// Deep-copy slices and maps from base so mutations to the merged
+	// config cannot affect the originals.
+	if base.LaunchArgs != nil {
+		out.LaunchArgs = make([]string, len(base.LaunchArgs))
+		copy(out.LaunchArgs, base.LaunchArgs)
+	}
+	if base.Env != nil {
+		out.Env = make(map[string]string, len(base.Env))
+		for k, v := range base.Env {
+			out.Env[k] = v
+		}
+	}
 
 	if override.ProtonVersion != nil {
 		out.ProtonVersion = override.ProtonVersion
@@ -181,14 +197,9 @@ func Merge(base, override *Config) *Config {
 		out.GameMode = override.GameMode
 	}
 	if override.Env != nil {
-		merged := make(map[string]string)
-		for k, v := range base.Env {
-			merged[k] = v
-		}
 		for k, v := range override.Env {
-			merged[k] = v
+			out.Env[k] = v
 		}
-		out.Env = merged
 	}
 	if override.GamescopeOpts != nil {
 		if out.GamescopeOpts == nil {
@@ -230,12 +241,15 @@ func DefaultPrefixBase() (string, error) {
 	return filepath.Join(home, ".local", "share", "proton-launcher", "prefixes"), nil
 }
 
+// DefaultGameID is the default UMU game ID used when none is configured.
+const DefaultGameID = "umu-default"
+
 func applyDefaults(cfg *Config) {
 	if cfg.UseUmu == nil {
 		cfg.UseUmu = BoolPtr(true)
 	}
 	if cfg.GameID == nil {
-		cfg.GameID = StringPtr("umu-default")
+		cfg.GameID = StringPtr(DefaultGameID)
 	}
 	if cfg.MangoHud == nil {
 		cfg.MangoHud = BoolPtr(false)
@@ -313,6 +327,9 @@ func DeleteGamePrefix(exePath string) error {
 		return nil
 	}
 	p := ExpandPath(*cfg.PrefixPath)
+	if err := validateRemovePath(p); err != nil {
+		return err
+	}
 	if err := os.RemoveAll(p); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -349,6 +366,9 @@ func DeleteAllPrefixes() error {
 	if global.PrefixPath != nil {
 		base = ExpandPath(*global.PrefixPath)
 	}
+	if err := validateRemovePath(base); err != nil {
+		return err
+	}
 	if err := os.RemoveAll(base); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -358,3 +378,26 @@ func DeleteAllPrefixes() error {
 func StringPtr(s string) *string { return &s }
 func BoolPtr(b bool) *bool       { return &b }
 func IntPtr(i int) *int          { return &i }
+
+// validateRemovePath refuses to os.RemoveAll a path that looks dangerously
+// broad (home directory, filesystem root, or fewer than 4 path components).
+func validateRemovePath(p string) error {
+	cleaned := filepath.Clean(p)
+	home, _ := os.UserHomeDir()
+	if cleaned == "/" || cleaned == "." || cleaned == home {
+		return fmt.Errorf("refusing to delete dangerous path: %s", cleaned)
+	}
+	// Require at least 4 components, e.g. /home/user/.local/share
+	parts := strings.Split(cleaned, string(filepath.Separator))
+	// Remove empty parts from leading /
+	var nonEmpty int
+	for _, part := range parts {
+		if part != "" {
+			nonEmpty++
+		}
+	}
+	if nonEmpty < 4 {
+		return fmt.Errorf("refusing to delete path with fewer than 4 components: %s", cleaned)
+	}
+	return nil
+}
