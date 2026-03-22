@@ -1,0 +1,11 @@
+#!/bin/sh
+# Nautilus script: Create Launcher Entry
+# Appears in right-click → Scripts when browsing files in GNOME Files (Nautilus).
+# Only acts on .exe files; exits silently for anything else.
+
+FILE="$NAUTILUS_SCRIPT_SELECTED_FILE_PATHS"
+case "$FILE" in
+    *.exe|*.EXE) ;;
+    *) exit 0 ;;
+esac
+exec proton-launcher desktop "$FILE"

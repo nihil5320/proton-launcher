@@ -1,0 +1,82 @@
+name: proton-launcher
+arch: amd64
+platform: linux
+version: v0.1.0
+maintainer: nihil5320 <https://github.com/nihil5320>
+description: Shell-integrated launcher for running Windows applications via Proton on Linux
+vendor: nihil5320
+homepage: https://github.com/nihil5320/proton-launcher
+license: MIT
+section: games
+
+depends:
+  - libc6
+  - libgl1
+  - libx11-6
+  - libxcursor1
+  - libxrandr2
+  - libxinerama1
+  - libxi6
+  - libxxf86vm1
+
+recommends:
+  - zenity
+  # - umu-launcher  # not yet packaged in Debian repos
+
+suggests:
+  - mangohud
+  - gamemode
+  - gamescope
+
+contents:
+  # Binary
+  - src: build/proton-launcher
+    dst: /usr/bin/proton-launcher
+    file_info:
+      mode: 0755
+
+  # XDG MIME handler
+  - src: assets/proton-launcher.desktop
+    dst: /usr/share/applications/proton-launcher.desktop
+    file_info:
+      mode: 0644
+
+  # Settings entry
+  - src: assets/proton-launcher-config.desktop
+    dst: /usr/share/applications/proton-launcher-config.desktop
+    file_info:
+      mode: 0644
+
+  # KDE Dolphin service menu
+  - src: assets/proton-launcher-service.desktop
+    dst: /usr/share/kio/servicemenus/proton-launcher-service.desktop
+    file_info:
+      mode: 0755
+
+  # GNOME Nautilus scripts
+  - src: assets/nautilus/proton-launcher-configure
+    dst: /usr/share/nautilus/scripts/proton-launcher-configure
+    file_info:
+      mode: 0755
+  - src: assets/nautilus/proton-launcher-shortcut
+    dst: /usr/share/nautilus/scripts/proton-launcher-shortcut
+    file_info:
+      mode: 0755
+
+  # License
+  - src: LICENSE
+    dst: /usr/share/doc/proton-launcher/LICENSE
+    file_info:
+      mode: 0644
+
+scripts:
+  postinstall: |
+    #!/bin/sh
+    if command -v update-desktop-database >/dev/null 2>&1; then
+      update-desktop-database /usr/share/applications || true
+    fi
+  postremove: |
+    #!/bin/sh
+    if command -v update-desktop-database >/dev/null 2>&1; then
+      update-desktop-database /usr/share/applications || true
+    fi

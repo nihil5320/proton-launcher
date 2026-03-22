@@ -20,7 +20,7 @@ Commands:
   run <exe>                Launch a game through Proton
   config [<exe>]           Open config GUI (global if no exe given)
   list                     List discovered Proton versions
-  desktop <exe>            Create a .desktop shortcut for a game
+  desktop <exe>            Create a launcher entry for a game
 
 Run 'proton-launcher <command> -h' for command-specific help.
 `
@@ -146,7 +146,7 @@ func cmdList() {
 
 func cmdDesktop(args []string) {
 	fs := flag.NewFlagSet("desktop", flag.ExitOnError)
-	name := fs.String("name", "", "Display name for the shortcut")
+	name := fs.String("name", "", "Display name for the launcher entry")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: proton-launcher desktop <exe> [-name \"Game Name\"]")
 		fs.PrintDefaults()
@@ -160,10 +160,10 @@ func cmdDesktop(args []string) {
 
 	path, err := desktop.CreateShortcut(fs.Arg(0), *name)
 	if err != nil {
-		showError(fmt.Sprintf("Failed to create shortcut: %s", err))
+		showError(fmt.Sprintf("Failed to create launcher entry: %s", err))
 		os.Exit(1)
 	}
-	fmt.Printf("Created shortcut: %s\n", path)
+	fmt.Printf("Created launcher entry: %s\n", path)
 }
 
 // ensureGlobalConfig creates a default global config if none exists,

@@ -56,7 +56,7 @@ func CreateShortcut(exePath, name string) (string, error) {
 	}
 	name = sanitizeName(name)
 	if name == "" {
-		return "", fmt.Errorf("shortcut name is empty after sanitization")
+		return "", fmt.Errorf("launcher entry name is empty after sanitization")
 	}
 
 	home, err := os.UserHomeDir()
@@ -72,7 +72,7 @@ func CreateShortcut(exePath, name string) (string, error) {
 	destPath := filepath.Join(appDir, "proton-launcher-"+safeName+".desktop")
 
 	if _, err := os.Stat(destPath); err == nil {
-		return destPath, fmt.Errorf("shortcut already exists: %s (delete it first to recreate)", destPath)
+		return destPath, fmt.Errorf("launcher entry already exists: %s (delete it first to recreate)", destPath)
 	}
 
 	f, err := os.Create(destPath)

@@ -9,6 +9,6 @@ Icon=preferences-system
 Exec=proton-launcher config %f
 
 [Desktop Action CreateShortcut]
-Name=Create Desktop Shortcut
+Name=Create Launcher Entry
 Icon=document-new
 Exec=proton-launcher desktop %f

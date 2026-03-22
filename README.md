@@ -1,16 +1,22 @@
 # proton-launcher
 
-A shell-integrated launcher for running Windows applications via Proton on Linux -- no visible third-party launcher required. It plugs directly into KDE Dolphin's right-click context menu and registers as a handler for `.exe` files, so launching a game feels native.
+A shell-integrated launcher for running Windows applications via Proton on Linux -- no visible third-party launcher required. It integrates with your desktop environment's file manager and registers as a handler for `.exe` files, so launching a game feels native.
 
-Nothing runs in the background. Each action (launch, configure, create shortcut) invokes the binary, does its job, and exits immediately.
+Nothing runs in the background. Each action (launch, configure, create launcher entry) invokes the binary, does its job, and exits immediately.
+
+## Supported Desktop Environments
+
+- **KDE Plasma** -- Dolphin service menu (right-click → Configure Proton / Create Launcher Entry), MIME handler, settings entry
+- **GNOME** -- Nautilus scripts (right-click → Scripts), MIME handler, settings entry
+- **COSMIC** -- MIME handler (Open With), settings entry in application launcher
 
 ## Requirements
 
-- Go 1.26.1+
+- Go 1.26.1+ (build only)
 - Proton (GE-Proton, Valve Proton via Steam, or Lutris Wine runners)
 - [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) (provides umu-run; can be disabled via config)
-- KDE Plasma (for service menu integration)
 - Optional: MangoHud, Gamescope, GameMode
+- Optional: kdialog (KDE) or zenity (GNOME/GTK) for error dialogs
 
 ## Installation
 
@@ -24,10 +30,22 @@ This installs:
 
 - `~/.local/bin/proton-launcher` (binary)
 - `~/.local/share/applications/proton-launcher.desktop` (MIME handler)
-- `~/.local/share/applications/proton-launcher-config.desktop` (settings entry in KDE app launcher)
-- `~/.local/share/kio/servicemenus/proton-launcher-service.desktop` (Dolphin right-click menu)
+- `~/.local/share/applications/proton-launcher-config.desktop` (settings entry)
+- `~/.local/share/kio/servicemenus/proton-launcher-service.desktop` (KDE Dolphin right-click menu)
+- `~/.local/share/nautilus/scripts/proton-launcher-configure` (GNOME Nautilus right-click script)
+- `~/.local/share/nautilus/scripts/proton-launcher-shortcut` (GNOME Nautilus right-click script)
+
+All DE integrations are installed regardless of which desktop you use. See below for DE specific installation.
 
 Ensure `~/.local/bin` is in your `PATH`.
+
+You can also install only specific DE integrations:
+
+```sh
+make build && make install-common              # binary + .desktop files only
+make install-kde                               # KDE Dolphin service menu
+make install-gnome                             # GNOME Nautilus scripts
+```
 
 To set proton-launcher as the default handler for `.exe` files (enables double-click to launch):
 
@@ -41,9 +59,28 @@ For system-wide installation:
 PREFIX=/usr sudo make install
 ```
 
+### Arch Linux (AUR)
+
+A `PKGBUILD` is provided in `packaging/aur/`. To build and install:
+
+```sh
+cd packaging/aur
+makepkg -si
+```
+
+### Debian / Ubuntu (.deb)
+
+A `.deb` package can be built using [nfpm](https://nfpm.goreleaser.com/):
+
+```sh
+make build
+nfpm package --packager deb --config packaging/nfpm.yaml
+sudo dpkg -i proton-launcher_*.deb
+```
+
 ## Uninstallation
 
-This removes the binary and desktop files, all config and game data (prefixes, logs):
+This removes the binary, all DE integration files, config, and game data (prefixes, logs):
 
 ```sh
 make uninstall
@@ -51,24 +88,37 @@ make uninstall
 
 ## Usage
 
-All day-to-day interaction happens through KDE's shell integration -- there is no launcher window to manage.
+All day-to-day interaction happens through your desktop's shell integration -- there is no launcher window to manage.
 
-### Dolphin context menu
+### KDE Plasma (Dolphin)
 
 Right-click any `.exe` file in Dolphin to see two actions in the service menu:
 
 - "Configure Proton Settings" -- opens per-game config GUI
-- "Create Desktop Shortcut" -- generates a `.desktop` file in `~/.local/share/applications/`
+- "Create Launcher Entry" -- creates a launcher entry in `~/.local/share/applications/` so the game appears in your application menu
 
-If proton-launcher is set as the default handler for `.exe` files (see installation), "Launch with Proton" also appears in the "Open With" menu.
+"Proton Launcher Settings" appears under Settings in the KDE application menu.
 
-### Double-click
+### GNOME (Nautilus / Files)
 
-After setting the MIME default (see installation), double-clicking an `.exe` in Dolphin launches it through Proton.
+Right-click any `.exe` file in Files → **Scripts** to see:
 
-### KDE app launcher
+- "proton-launcher-configure" -- opens per-game config GUI
+- "proton-launcher-shortcut" -- creates a launcher entry
 
-"Proton Launcher Settings" appears under Settings in the KDE application menu. Opens the global configuration GUI.
+The scripts only act on `.exe` files and exit silently for anything else.
+
+"Proton Launcher Settings" appears in the GNOME application overview.
+
+### COSMIC
+
+COSMIC Files follows XDG standards. The MIME handler provides "Open With Proton Launcher" for `.exe` files. "Proton Launcher Settings" appears in the COSMIC application launcher.
+
+Custom right-click actions will be added when cosmic-files supports them upstream.
+
+### Double-click (all DEs)
+
+After setting the MIME default (see installation), double-clicking an `.exe` launches it through Proton.
 
 ### CLI
 
@@ -79,7 +129,7 @@ proton-launcher run <exe>            # launch a game
 proton-launcher config               # open global config GUI
 proton-launcher config <exe>         # open per-game config GUI
 proton-launcher list                 # list discovered Proton versions
-proton-launcher desktop <exe>        # create a .desktop shortcut
+proton-launcher desktop <exe>        # create a launcher entry
 proton-launcher desktop <exe> -name "My Game"
 ```
 
